@@ -1,8 +1,8 @@
+import argparse
 import asyncio
 import os
 import time
 import uuid
-from pathlib import Path
 
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
@@ -13,68 +13,103 @@ from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
     Config,
-    find_project_config_dir,
+    find_project_root,
     load_config_file,
     parse_cli_args,
 )
 from vectorcode.common import get_client, get_collection, try_server
+from vectorcode.subcommands.clean import run_clean_on_client
 from vectorcode.subcommands.query import get_query_result_files
 
 cached_project_configs: dict[str, Config] = {}
 cached_clients: dict[tuple[str, int], AsyncClientAPI] = {}
 cached_collections: dict[str, AsyncCollection] = {}
 
+DEFAULT_PROJECT_ROOT: str | None = None
+
+
+async def make_caches(project_root: str):
+    assert os.path.isabs(project_root)
+    if cached_project_configs.get(project_root) is None:
+        config_file = os.path.join(project_root, ".vectorcode", "config.json")
+        if os.path.isfile(config_file):
+            config_file = None
+        cached_project_configs[project_root] = await load_config_file(config_file)
+    config = cached_project_configs[project_root]
+    config.project_root = project_root
+    host, port = config.host, config.port
+    if not await try_server(host, port):
+        raise ConnectionError(
+            "Failed to find an existing ChromaDB server, which is a hard requirement for LSP mode!"
+        )
+    if cached_clients.get((host, port)) is None:
+        cached_clients[(host, port)] = await get_client(config)
+    client = cached_clients[(host, port)]
+    if cached_collections.get(project_root) is None:
+        cached_collections[project_root] = await get_collection(client, config, True)
+
+
+def get_arg_parser():
+    parser = argparse.ArgumentParser(
+        "vectorcode-server", description="VectorCode LSP daemon."
+    )
+    parser.add_argument("--version", action="store_true", default=False)
+    parser.add_argument(
+        "--project_root",
+        help="Default project root for VectorCode queries.",
+        type=str,
+        default="",
+    )
+    return parser
+
 
 async def lsp_start() -> int:
+    global DEFAULT_PROJECT_ROOT
+    args = get_arg_parser().parse_args()
+    if args.version:
+        print(__version__)
+        return 0
+
     server: LanguageServer = LanguageServer(
         name="vectorcode-server", version=__version__
     )
+    if args.project_root == "":
+        DEFAULT_PROJECT_ROOT = find_project_root(
+            ".", ".vectorcode"
+        ) or find_project_root(".", ".git")
+    else:
+        DEFAULT_PROJECT_ROOT = os.path.abspath(args.project_root)
 
     @server.command("vectorcode")
     async def execute_command(ls: LanguageServer, *args):
+        global DEFAULT_PROJECT_ROOT
         start_time = time.time()
         parsed_args = await parse_cli_args(args[0])
         assert parsed_args.action == CliAction.query
         if parsed_args.project_root is None:
-            resolved_project_root = await find_project_config_dir(".")
-            if resolved_project_root is not None:
-                parsed_args.project_root = Path(resolved_project_root).parent.resolve()
-            else:
-                raise FileNotFoundError("Failed to automatically detect project root!")
+            assert DEFAULT_PROJECT_ROOT is not None, (
+                "Failed to automatically resolve project root!"
+            )
 
-        parsed_args.project_root = os.path.abspath(parsed_args.project_root)
-        if cached_project_configs.get(parsed_args.project_root) is None:
-            config_file = os.path.join(
-                parsed_args.project_root, ".vectorcode", "config.json"
-            )
-            if not os.path.isfile(config_file):
-                config_file = None
-            cached_project_configs[parsed_args.project_root] = await load_config_file(
-                config_file
-            )
+            parsed_args.project_root = DEFAULT_PROJECT_ROOT
+        elif DEFAULT_PROJECT_ROOT is None:
+            DEFAULT_PROJECT_ROOT = str(parsed_args.project_root)
+
+        parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
+        await make_caches(parsed_args.project_root)
         final_configs = await cached_project_configs[
             parsed_args.project_root
         ].merge_from(parsed_args)
+        final_configs.pipe = True
         progress_token = str(uuid.uuid4())
         await ls.progress.create_async(progress_token)
         ls.progress.begin(
             progress_token,
             types.WorkDoneProgressBegin(
-                "VectorCode", message="Retrieving from VectorCode."
+                "VectorCode",
+                message=f"Retrieving from VectorCode at {final_configs.project_root}.",
             ),
         )
-        if not await try_server(final_configs.host, final_configs.port):
-            raise ConnectionError(
-                "Failed to find an existing ChromaDB server, which is a hard requirement for LSP mode!"
-            )
-        if cached_clients.get((final_configs.host, final_configs.port)) is None:
-            cached_clients[(final_configs.host, final_configs.port)] = await get_client(
-                final_configs
-            )
-        if cached_collections.get(str(final_configs.project_root)) is None:
-            cached_collections[str(final_configs.project_root)] = await get_collection(
-                cached_clients[(final_configs.host, final_configs.port)], final_configs
-            )
         final_results = []
         for path in await get_query_result_files(
             collection=cached_collections[str(final_configs.project_root)],
@@ -91,7 +126,13 @@ async def lsp_start() -> int:
         )
         return final_results
 
-    await asyncio.to_thread(server.start_io)
+    try:
+        await asyncio.to_thread(server.start_io)
+    finally:
+        for client in cached_clients.values():
+            # clean up empty collections.
+            await run_clean_on_client(client, True)
+
     return 0
 
 

@@ -426,13 +426,22 @@ would be:
     arguments: ["query", "-n", "10", "reranker"]
 }
 ```
+
+The `vectorcode-server` optionally accepts a `--project_root` parameter, which
+specifies the default project root for this process. If not specified, it
+will:
+
+1. try to find a project root by root anchors (`.vectorcode` or `.git`)
+   starting from the current working directory;
+2. if 1 fails, but the first request contains a `--project_root` parameter, it
+   will use that as the default project root for this process;
+3. if 2 fails too, the process throws an error.
+
 Note that:
 
 1. For easier parsing, `--pipe` is assumed to be enabled in LSP mode;
-2. At the time this only work with vectorcode setup that uses a standalone
-   ChromaDB server, which is not difficult to setup using docker;
-3. The `arguments` must contain `--project_root` and the corresponding project
-   root to avoid confusion;
-4. At the time this only work with `query` subcommand. I will consider adding
+2. At the time this only work with vectorcode setup that uses a **standalone
+   ChromaDB server**, which is not difficult to setup using docker;
+3. At the time this only work with `query` subcommand. I will consider adding
    support for other subcommand but first I need to figure out how to properly
    manage `project_root` across different requests if they change.
