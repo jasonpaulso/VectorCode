@@ -7,9 +7,16 @@ import uuid
 
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from lsprotocol import types
-from pygls.server import LanguageServer
 
+try:
+    from lsprotocol import types
+    from pygls.server import LanguageServer
+except ModuleNotFoundError:
+    print(
+        "Please install the `vectorcode[lsp]` dependency group to use the LSP feature.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
