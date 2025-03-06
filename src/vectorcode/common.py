@@ -149,6 +149,7 @@ async def get_collection(
     Raise ValueError when make_if_missing is False and no collection is found;
     Raise IndexError on hash collision.
     """
+    assert configs.project_root is not None
     full_path = str(expand_path(str(configs.project_root), absolute=True))
     collection_name = get_collection_name(full_path)
     embedding_function = get_embedding_function(configs)
