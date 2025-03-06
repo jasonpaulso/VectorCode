@@ -13,17 +13,7 @@ if vim.fn.executable("vectorcode-server") ~= 1 then
 end
 
 ---@type integer?
-local client_id, err = vim.lsp.start_client({
-  name = "vectorcode-server",
-  cmd = { "vectorcode-server" },
-})
-if err ~= nil then
-  vim.notify(
-    ("Failed to start vectorcode-server due to the following error:\n%s"):format(err),
-    vim.log.levels.ERROR,
-    notify_opts
-  )
-end
+local client_id = nil
 
 ---@param bufnr integer
 ---@param project_root string
@@ -45,6 +35,59 @@ end
 local function is_lsp_running()
   return client_id ~= nil
 end
+---@param project_root string?
+---@param ok_to_fail boolean?
+---@return boolean
+local function start_server(project_root, ok_to_fail)
+  if is_lsp_running() then
+    return true
+  end
+
+  if ok_to_fail == nil then
+    ok_to_fail = true
+  end
+  local cmd = { "vectorcode-server" }
+  if
+    type(project_root) == "string"
+    and vim.list_contains({ "directory" }, vim.uv.fs_stat(project_root).type)
+  then
+    vim.list_extend(cmd, { "--project_root", project_root })
+  else
+    local try_root = vim.fs.root(".", ".vectorcode") or vim.fs.root(".", ".git")
+    if try_root ~= nil then
+      vim.list_extend(cmd, { "--project_root", try_root })
+    else
+      vim.schedule(function()
+        vim.notify(
+          "Failed to start vectorcode-server due to failing to resolve the project root.",
+          vim.log.levels.ERROR,
+          notify_opts
+        )
+      end)
+      return false
+    end
+  end
+  local id, err = vim.lsp.start_client({
+    name = "vectorcode-server",
+    cmd = cmd,
+  })
+
+  if err ~= nil and (vc_config.get_user_config().notify or not ok_to_fail) then
+    vim.schedule(function()
+      vim.notify(
+        ("Failed to start vectorcode-server due to the following error:\n%s"):format(
+          err
+        ),
+        vim.log.levels.ERROR,
+        notify_opts
+      )
+    end)
+    return false
+  else
+    client_id = id
+    return true
+  end
+end
 
 ---@type table<integer, VectorCode.Cache>
 local CACHE = {}
@@ -56,9 +99,6 @@ local function async_runner(query_message, buf_nr)
     return
   end
   assert(client_id ~= nil)
-  if not vim.lsp.buf_is_attached(buf_nr, client_id) then
-    vim.lsp.buf_attach_client(buf_nr, client_id)
-  end
   ---@type VectorCode.Cache
   local cache = CACHE[buf_nr]
   local args = {
@@ -94,7 +134,10 @@ local function async_runner(query_message, buf_nr)
   end
 
   local client = vim.lsp.get_client_by_id(client_id)
-  if client ~= nil then
+  if
+    client ~= nil
+    and (CACHE[buf_nr].job_count == 0 or not CACHE[buf_nr].options.single_job)
+  then
     CACHE[buf_nr].job_count = CACHE[buf_nr].job_count + 1
     client.request(
       vim.lsp.protocol.Methods.workspace_executeCommand,
@@ -139,17 +182,6 @@ M.register_buffer = vc_config.check_cli_wrap(
   ---@param bufnr integer? Default to the current buffer.
   ---@param opts VectorCode.RegisterOpts? Async options.
   function(bufnr, opts)
-    if not is_lsp_running() then
-      vim.schedule(function()
-        vim.notify(
-          "VectorCode server is not running!",
-          vim.log.levels.ERROR,
-          notify_opts
-        )
-      end)
-      return false
-    end
-
     if bufnr == 0 or bufnr == nil then
       bufnr = vim.api.nvim_get_current_buf()
     end
@@ -159,7 +191,18 @@ M.register_buffer = vc_config.check_cli_wrap(
     opts =
       vim.tbl_deep_extend("force", vc_config.get_user_config().async_opts, opts or {})
 
-    if M.buf_is_registered(bufnr) then
+    if
+      not start_server(opts.project_root or vim.api.nvim_buf_get_name(bufnr), false)
+    then
+      -- failed to start the server
+      return false
+    end
+    assert(client_id ~= nil)
+    if not vim.lsp.buf_is_attached(bufnr, client_id) then
+      vim.lsp.buf_attach_client(bufnr, client_id)
+    end
+
+    if CACHE[bufnr] ~= nil then
       -- update the options and/or query_cb
       CACHE[bufnr].options =
         vim.tbl_deep_extend("force", CACHE[bufnr].options, opts or {})
@@ -183,8 +226,7 @@ M.register_buffer = vc_config.check_cli_wrap(
       group = group,
       callback = function()
         assert(CACHE[bufnr] ~= nil, "buffer vectorcode cache not registered")
-        local cache = CACHE[bufnr]
-        async_runner(cache.options.query_cb(bufnr), bufnr)
+        async_runner(CACHE[bufnr].options.query_cb(bufnr), bufnr)
       end,
       buffer = bufnr,
       desc = "Run query on certain autocmd",

@@ -375,8 +375,9 @@ The following are the available options for this function:
   - `project_root`: a string of the path that overrides the detected project root. 
   Default: `nil`. This is mostly intended to use with the [user command](#vectorcode-register), 
   and you probably should not use this directly in your config. **If you're
-  using the LSP backend, this will be automatically detected based on
-  `.vectorcode` or `.git`. If this fails, LSP backend will not make the request**;
+  using the LSP backend and did not specify this value, it will be automatically 
+  detected based on `.vectorcode` or `.git`. If this fails, LSP backend will not 
+  work**;
   - `exclude_this`: whether to exclude the file you're editing. Default: `true`;
   - `n_query`: number of retrieved documents. Default: `1`;
   - `debounce`: debounce time in milliseconds. Default: `10`;
