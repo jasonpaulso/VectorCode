@@ -360,6 +360,19 @@ async def find_project_config_dir(start_from: PathLike = "."):
         current_dir = parent.resolve()
 
 
+def find_project_root(
+    start_from: PathLike, root_anchor: PathLike = ".vectorcode"
+) -> str | None:
+    start_from = Path(start_from)
+    if os.path.isfile(start_from):
+        start_from = start_from.parent
+
+    while start_from:
+        if (start_from / Path(root_anchor)).is_dir():
+            return str(start_from.absolute())
+        start_from = start_from.parent
+
+
 def expand_path(path: PathLike, absolute: bool = False) -> PathLike:
     expanded = os.path.expanduser(os.path.expandvars(path))
     if absolute:
