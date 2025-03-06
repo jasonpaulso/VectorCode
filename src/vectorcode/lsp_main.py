@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import os
+import sys
 import time
 import uuid
 
@@ -85,7 +86,6 @@ async def lsp_start() -> int:
         global DEFAULT_PROJECT_ROOT
         start_time = time.time()
         parsed_args = await parse_cli_args(args[0])
-        assert parsed_args.action == CliAction.query
         if parsed_args.project_root is None:
             assert DEFAULT_PROJECT_ROOT is not None, (
                 "Failed to automatically resolve project root!"
@@ -102,29 +102,37 @@ async def lsp_start() -> int:
         ].merge_from(parsed_args)
         final_configs.pipe = True
         progress_token = str(uuid.uuid4())
+        collection = cached_collections[str(final_configs.project_root)]
         await ls.progress.create_async(progress_token)
-        ls.progress.begin(
-            progress_token,
-            types.WorkDoneProgressBegin(
-                "VectorCode",
-                message=f"Retrieving from VectorCode at {final_configs.project_root}.",
-            ),
-        )
-        final_results = []
-        for path in await get_query_result_files(
-            collection=cached_collections[str(final_configs.project_root)],
-            configs=final_configs,
-        ):
-            if os.path.isfile(path):
-                with open(path) as fin:
-                    final_results.append({"path": path, "document": fin.read()})
-        ls.progress.end(
-            progress_token,
-            types.WorkDoneProgressEnd(
-                message=f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
-            ),
-        )
-        return final_results
+        match final_configs.action:
+            case CliAction.query:
+                ls.progress.begin(
+                    progress_token,
+                    types.WorkDoneProgressBegin(
+                        "VectorCode",
+                        message="Retrieving from VectorCode",
+                    ),
+                )
+                final_results = []
+                for path in await get_query_result_files(
+                    collection=collection,
+                    configs=final_configs,
+                ):
+                    if os.path.isfile(path):
+                        with open(path) as fin:
+                            final_results.append({"path": path, "document": fin.read()})
+                ls.progress.end(
+                    progress_token,
+                    types.WorkDoneProgressEnd(
+                        message=f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
+                    ),
+                )
+                return final_results
+            case _:
+                print(
+                    f"Unsupported vectorcode subcommand: {str(final_configs.action)}",
+                    file=sys.stderr,
+                )
 
     try:
         await asyncio.to_thread(server.start_io)
