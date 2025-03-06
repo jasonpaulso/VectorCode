@@ -25,6 +25,7 @@
   * [`vectorcode vectorise`](#vectorcode-vectorise)
   * [`vectorcode ls`](#vectorcode-ls)
 * [LSP Mode](#lsp-mode)
+* [MCP Server](#mcp-server)
 
 <!-- mtoc-end -->
 
@@ -445,3 +446,17 @@ Note that:
 3. At the time this only work with `query` subcommand. I will consider adding
    support for other subcommand but first I need to figure out how to properly
    manage `project_root` across different requests if they change.
+
+## MCP Server
+
+[Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is 
+an open protocol that standardizes how applications provide context to LLMs.
+VectorCode provides an experimental implementation that provides the following 
+features:
+
+- list local collections;
+- query from a given collection.
+
+This hasn't been thoroughly tested and interfaces are subjected to changes. To
+try it out, install the `vectorcode[mcp]` dependency group and the MCP server is
+available in the shell as `vectorcode-mcp-server`.
