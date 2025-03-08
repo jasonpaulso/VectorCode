@@ -35,6 +35,7 @@ async def chunked_add(
     stats_lock: Lock,
     configs: Config,
     max_batch_size: int,
+    semaphore: asyncio.Semaphore,
 ):
     full_path_str = str(expand_path(str(file_path), True))
     async with collection_lock:
@@ -52,22 +53,25 @@ async def chunked_add(
             await collection.delete(where={"path": full_path_str})
 
     try:
-        with open(full_path_str) as fin:
-            chunks = list(
-                FileChunker(configs.chunk_size, configs.overlap_ratio).chunk(fin)
-            )
-            if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
-                # empty file
-                return
-            chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
-            async with collection_lock:
-                for idx in range(0, len(chunks), max_batch_size):
-                    inserted_chunks = chunks[idx : idx + max_batch_size]
-                    await collection.add(
-                        ids=[get_uuid() for _ in inserted_chunks],
-                        documents=inserted_chunks,
-                        metadatas=[{"path": full_path_str} for _ in inserted_chunks],
-                    )
+        async with semaphore:
+            with open(full_path_str) as fin:
+                chunks = list(
+                    FileChunker(configs.chunk_size, configs.overlap_ratio).chunk(fin)
+                )
+                if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
+                    # empty file
+                    return
+                chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
+                async with collection_lock:
+                    for idx in range(0, len(chunks), max_batch_size):
+                        inserted_chunks = chunks[idx : idx + max_batch_size]
+                        await collection.add(
+                            ids=[get_uuid() for _ in inserted_chunks],
+                            documents=inserted_chunks,
+                            metadatas=[
+                                {"path": full_path_str} for _ in inserted_chunks
+                            ],
+                        )
     except UnicodeDecodeError:
         # probably binary. skip it.
         return
@@ -129,6 +133,7 @@ async def vectorise(configs: Config) -> int:
     collection_lock = Lock()
     stats_lock = Lock()
     max_batch_size = await client.get_max_batch_size()
+    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
 
     with tqdm.tqdm(
         total=len(files), desc="Vectorising files...", disable=configs.pipe
@@ -144,6 +149,7 @@ async def vectorise(configs: Config) -> int:
                         stats_lock,
                         configs,
                         max_batch_size,
+                        semaphore,
                     )
                 )
                 for file in files

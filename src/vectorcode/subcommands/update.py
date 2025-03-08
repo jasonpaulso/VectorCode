@@ -44,6 +44,7 @@ async def update(configs: Config) -> int:
     collection_lock = Lock()
     stats_lock = Lock()
     max_batch_size = await client.get_max_batch_size()
+    semaphore = asyncio.Semaphore(os.cpu_count() or 1)
 
     with tqdm.tqdm(
         total=len(files), desc="Vectorising files...", disable=configs.pipe
@@ -59,6 +60,7 @@ async def update(configs: Config) -> int:
                         stats_lock,
                         configs,
                         max_batch_size,
+                        semaphore,
                     )
                 )
                 for file in files
