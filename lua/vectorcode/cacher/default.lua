@@ -12,7 +12,7 @@ local function kill_jobs(bufnr)
   local cache = CACHE[bufnr]
   if cache ~= nil then
     for job_pid, is_running in pairs(cache.jobs) do
-      if is_running == true then
+      if type(is_running) == "number" then
         vim.uv.kill(job_pid, 15)
       end
     end
@@ -105,7 +105,7 @@ local function async_runner(query_message, buf_nr)
   ---@type VectorCode.Cache
   cache = CACHE[buf_nr]
   cache.last_run = vim.uv.clock_gettime("realtime").sec
-  cache.jobs[job.pid] = true
+  cache.jobs[job.pid] = vim.uv.clock_gettime("realtime").sec
   vim.schedule(function()
     if cache.options.notify then
       vim.notify(

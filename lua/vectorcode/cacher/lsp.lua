@@ -92,6 +92,41 @@ end
 ---@type table<integer, VectorCode.Cache>
 local CACHE = {}
 
+local function cleanup_lsp_requests()
+  if client_id == nil then
+    return
+  end
+  local client = vim.lsp.get_client_by_id(client_id)
+  if client == nil then
+    return
+  end
+  for request, data in pairs(client.requests) do
+    if data.type ~= "pending" then
+      CACHE[data.bufnr].jobs[request] = nil
+    end
+  end
+  for bufnr, cache in pairs(CACHE) do
+    cache.job_count = #vim.tbl_keys(cache.jobs)
+  end
+end
+
+---@params bufnr integer
+local function kill_jobs(bufnr)
+  if client_id == nil then
+    return
+  end
+  local client = vim.lsp.get_client_by_id(client_id)
+  if client == nil then
+    return
+  end
+  for request_id, time in pairs(CACHE[bufnr].jobs) do
+    if client.requests[request_id].type == "pending" then
+      client.cancel_request(request_id)
+    end
+  end
+  cleanup_lsp_requests()
+end
+
 ---@param query_message string|string[]
 ---@param buf_nr integer
 local function async_runner(query_message, buf_nr)
@@ -134,12 +169,12 @@ local function async_runner(query_message, buf_nr)
   end
 
   local client = vim.lsp.get_client_by_id(client_id)
-  if
-    client ~= nil
-    and (CACHE[buf_nr].job_count == 0 or not CACHE[buf_nr].options.single_job)
-  then
+  if client ~= nil then
+    if CACHE[buf_nr].options.single_job then
+      kill_jobs(buf_nr)
+    end
     CACHE[buf_nr].job_count = CACHE[buf_nr].job_count + 1
-    client.request(
+    local ok, request_id = client.request(
       vim.lsp.protocol.Methods.workspace_executeCommand,
       { command = "vectorcode", arguments = args },
       function(err, result, _, _)
@@ -156,10 +191,14 @@ local function async_runner(query_message, buf_nr)
         if result ~= nil and #result > 0 then
           CACHE[buf_nr].retrieval = result
         end
+        cleanup_lsp_requests()
       end,
       buf_nr
     )
 
+    if ok and request_id ~= nil then
+      CACHE[buf_nr].jobs[request_id] = vim.uv.clock_gettime("realtime").sec
+    end
     vim.schedule(function()
       if CACHE[buf_nr].options.notify then
         vim.notify(
@@ -272,6 +311,7 @@ M.deregister_buffer = vc_config.check_cli_wrap(
       bufnr = vim.api.nvim_get_current_buf()
     end
     if M.buf_is_registered(bufnr) then
+      kill_jobs(bufnr)
       vim.api.nvim_del_augroup_by_name(("VectorCodeCacheGroup%d"):format(bufnr))
       CACHE[bufnr] = nil
       if client_id ~= nil then
@@ -392,7 +432,8 @@ function M.buf_job_count(bufnr)
   if bufnr == nil or bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end
-  return CACHE[bufnr].job_count
+  cleanup_lsp_requests()
+  return #vim.tbl_keys(CACHE[bufnr].jobs)
 end
 
 ---@param bufnr integer?

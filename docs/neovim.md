@@ -343,10 +343,10 @@ interface:
    implemented in version 0.4.0.
 
 
-| Features | `default`                                                                                                 | `lsp`                                                                                                                                                                  |
-|:---:|:---:|:---:|
-| **Pros** | Fully backward compatible with minimal extra config required                                              | Less IO overhead for loading/unloading embedding models; Progress reports.                                                                                             |
-| **Cons** | Heavy IO overhead because the embedding model anc database client need to be initialised for every query. | Requires `vectorcode-server`; Only works if you're using a standalone ChromaDB server; Lacks the ability to cancel pending queries; May contain bugs because it's new. |
+| Features | `default`                                                                                                 | `lsp`                                                                                                                     |
+|----------|-----------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------|
+| **Pros** | Fully backward compatible with minimal extra config required                                              | Less IO overhead for loading/unloading embedding models; Progress reports.                                                |
+| **Cons** | Heavy IO overhead because the embedding model and database client need to be initialised for every query. | Requires `vectorcode-server`; Only works if you're using a standalone ChromaDB server; May contain bugs because it's new. |
 
 You may choose which backend to use by setting the [`setup`](#setupopts) option `async_backend`, 
 and acquire the corresponding backend by the following API:
@@ -388,7 +388,7 @@ The following are the available options for this function:
     Default: `false`;
   - `single_job`: boolean. If this is set to `true`, there will only be one running job
     for each buffer, and when a new job is triggered, the last-running job will be
-    cancelled. Default: `false`. **This does not work for the LSP backend.**
+    cancelled. Default: `false`.
 
 
 #### `cacher_backend.query_from_cache(bufnr?)`

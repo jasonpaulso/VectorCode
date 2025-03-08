@@ -7,7 +7,7 @@
 ---@class VectorCode.Cache
 ---@field enabled boolean Whether the async jobs are enabled or not. If the buffer is disabled, no cache will be generated for it.
 ---@field job_count integer
----@field jobs table<integer, boolean> keeps track of running jobs.
+---@field jobs table<integer, integer> Job handle:time of creation (in seconds)
 ---@field last_run integer? Last time the query ran, in seconds from epoch.
 ---@field options VectorCode.RegisterOpts The options that the buffer was registered with.
 ---@field retrieval VectorCode.Result[]? The latest retrieval.
