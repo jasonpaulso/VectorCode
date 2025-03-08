@@ -459,4 +459,10 @@ features:
 
 This hasn't been thoroughly tested and interfaces are subjected to changes. To
 try it out, install the `vectorcode[mcp]` dependency group and the MCP server is
-available in the shell as `vectorcode-mcp-server`.
+available in the shell as `vectorcode-mcp-server`. To play around with this, 
+make sure:
+
+1. you're using a [standalone chromadb server](#chromadb) configured in the [JSON](#configuring-vectorcode)
+   via `host` and `port`;
+2. you start the MCP server from a VectorCode project root (with the
+   `.vectorcode` directory and some files already vectorised).
