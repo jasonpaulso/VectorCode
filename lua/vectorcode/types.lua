@@ -45,5 +45,5 @@
 ---@field buf_is_registered fun(bufnr: integer?): boolean Checks if a buffer has been registered.
 ---@field buf_job_count fun(bufnr: integer?): integer Returns the number of running jobs in the background.
 ---@field buf_is_enabled fun(bufnr: integer?): boolean Checks if a buffer has been enabled.
----@field make_prompt_component fun(bufnr: integer?, component_cb: fun(result: VectorCode.Result): string?): {content: string, count: integer} Compile the retrieval results into a string.
+---@field make_prompt_component fun(bufnr: integer?, component_cb: (fun(result: VectorCode.Result): string)?): {content: string, count: integer} Compile the retrieval results into a string.
 ---@field async_check fun(check_item: string?, on_success: fun(out: vim.SystemCompleted)?, on_failure: fun(out: vim.SystemCompleted)?) Checks if VectorCode has been configured properly for your project.
