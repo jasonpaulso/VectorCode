@@ -5,6 +5,7 @@ import os
 import sys
 import uuid
 from asyncio import Lock
+from typing import Iterable
 
 import pathspec
 import tabulate
@@ -94,6 +95,20 @@ def show_stats(configs: Config, stats):
         )
 
 
+def exclude_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> list[str]:
+    """
+    Files matched by the specs will be excluded.
+    """
+    return [path for path in paths if not specs.match_file(path)]
+
+
+def include_paths_by_spec(paths: Iterable[str], specs: pathspec.PathSpec) -> list[str]:
+    """
+    Only include paths matched by the specs.
+    """
+    return [path for path in paths if specs.match_file(path)]
+
+
 async def vectorise(configs: Config) -> int:
     client = await get_client(configs)
     try:
@@ -105,16 +120,10 @@ async def vectorise(configs: Config) -> int:
         return 1
     gitignore_path = os.path.join(str(configs.project_root), ".gitignore")
     files = await expand_globs(configs.files or [], recursive=configs.recursive)
-    if os.path.isfile(gitignore_path):
+    if os.path.isfile(gitignore_path) and not configs.force:
         with open(gitignore_path) as fin:
             gitignore_spec = pathspec.GitIgnoreSpec.from_lines(fin.readlines())
-        files = [
-            file
-            for file in files
-            if (configs.force or not gitignore_spec.match_file(file))
-        ]
-    else:
-        gitignore_spec = None
+        files = exclude_paths_by_spec((str(i) for i in files), gitignore_spec)
 
     stats = {"add": 0, "update": 0, "removed": 0}
     collection_lock = Lock()
