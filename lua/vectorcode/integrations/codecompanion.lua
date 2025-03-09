@@ -77,6 +77,8 @@ local make_tool = check_cli_wrap(function(opts)
   - Include one single command call for VectorCode each time. You may include multiple keywords in the command
   - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks
   - If the retrieval results do not contain the needed context, increase the number of files to retrieve so that the result will more likely contain the desired files
+  - If the returned paths are relative, they are relative to the root of the project directory
+  - Do not suggest edits to retrieved files that are outside of the current working directory, unless the user instructed otherwise
   %s
   %s
 
