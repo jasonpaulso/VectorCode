@@ -101,7 +101,7 @@ local function cleanup_lsp_requests()
     return
   end
   for request, data in pairs(client.requests) do
-    if data.type ~= "pending" then
+    if data.type ~= "pending" and CACHE[data.bufnr] ~= nil then
       CACHE[data.bufnr].jobs[request] = nil
     end
   end
@@ -120,7 +120,10 @@ local function kill_jobs(bufnr)
     return
   end
   for request_id, time in pairs(CACHE[bufnr].jobs) do
-    if client.requests[request_id].type == "pending" then
+    if
+      client.requests[request_id] ~= nil
+      and client.requests[request_id].type == "pending"
+    then
       client.cancel_request(request_id)
     end
   end
