@@ -1,3 +1,7 @@
+if vim.system({ "vectorcode-server", "--version" }):wait().code ~= 0 then
+  return nil
+end
+
 ---@type VectorCode.JobRunner
 local jobrunner = {}
 
