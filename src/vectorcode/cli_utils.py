@@ -375,6 +375,19 @@ def find_project_root(
         start_from = start_from.parent
 
 
+async def get_project_config(project_root: PathLike) -> Config:
+    """
+    Load config file for `project_root`.
+    Fallback to global config, and then default config.
+    """
+    if not os.path.isabs(project_root):
+        project_root = os.path.abspath(project_root)
+    local_config_path = os.path.join(project_root, ".vectorcode", "config.json")
+    if os.path.isfile(os.path.join(project_root, ".vectorcode", "config.json")):
+        return await load_config_file(local_config_path)
+    return await load_config_file()
+
+
 def expand_path(path: PathLike, absolute: bool = False) -> PathLike:
     expanded = os.path.expanduser(os.path.expandvars(path))
     if absolute:

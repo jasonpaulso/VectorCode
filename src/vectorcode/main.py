@@ -9,6 +9,8 @@ from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
     find_project_config_dir,
+    find_project_root,
+    get_project_config,
     load_config_file,
     parse_cli_args,
 )
@@ -29,28 +31,18 @@ async def async_main():
     cli_args = await parse_cli_args()
     if cli_args.no_stderr:
         sys.stderr = open(os.devnull, "w")
-    project_dir = await find_project_config_dir(cli_args.project_root or ".")
+    if cli_args.project_root is None:
+        cwd = os.getcwd()
+        cli_args.project_root = (
+            find_project_root(cwd, ".vectorcode")
+            or find_project_root(cwd, ".git")
+            or cwd
+        )
 
     try:
-        if project_dir is not None:
-            if cli_args.project_root is None:
-                cli_args.project_root = str(Path(project_dir).parent.resolve())
-
-            project_config_file = os.path.join(
-                cli_args.project_root, ".vectorcode", "config.json"
-            )
-            if os.path.isfile(project_config_file):
-                # has project-local config. use it
-                final_configs = await (
-                    await load_config_file(project_config_file)
-                ).merge_from(cli_args)
-            else:
-                # no project-local config. use global config.
-                final_configs = await (await load_config_file()).merge_from(cli_args)
-        else:
-            final_configs = await (await load_config_file()).merge_from(cli_args)
-            if final_configs.project_root is None:
-                final_configs.project_root = "."
+        final_configs = await (
+            await get_project_config(cli_args.project_root)
+        ).merge_from(cli_args)
     except IOError as e:
         traceback.print_exception(e, file=sys.stderr)
         return 1
