@@ -370,6 +370,8 @@ def find_project_root(
     while start_from:
         if (start_from / Path(root_anchor)).is_dir():
             return str(start_from.absolute())
+        if start_from == start_from.parent:
+            return
         start_from = start_from.parent
 
 
