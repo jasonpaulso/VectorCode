@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 from chromadb.api import AsyncClientAPI
+from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.config import Settings
 
 from vectorcode.cli_utils import Config
@@ -15,6 +16,7 @@ from vectorcode.common import (
     get_client,
     get_collection,
     get_collection_name,
+    get_collections,
     get_embedding_function,
     start_server,
     try_server,
@@ -305,3 +307,84 @@ async def test_start_server():
 
             # Assert that the function returns the process
             assert process == mock_process
+
+
+@pytest.mark.asyncio
+async def test_get_collections():
+    # Mocking AsyncClientAPI and AsyncCollection
+    mock_client = MagicMock(spec=AsyncClientAPI)
+
+    # Mock successful get_collection
+    mock_collection1 = MagicMock(spec=AsyncCollection)
+    mock_collection1.metadata = {
+        "created-by": "VectorCode",
+        "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
+        "hostname": socket.gethostname(),
+    }
+
+    # collection with meta == None
+    mock_collection2 = MagicMock(spec=AsyncCollection)
+    mock_collection2.metadata = None
+
+    # collection with wrong "created-by"
+    mock_collection3 = MagicMock(spec=AsyncCollection)
+    mock_collection3.metadata = {
+        "created-by": "NotVectorCode",
+        "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
+        "hostname": socket.gethostname(),
+    }
+
+    # collection with wrong "username"
+    mock_collection4 = MagicMock(spec=AsyncCollection)
+    mock_collection4.metadata = {
+        "created-by": "VectorCode",
+        "username": "wrong_user",
+        "hostname": socket.gethostname(),
+    }
+
+    # collection with wrong "hostname"
+    mock_collection5 = MagicMock(spec=AsyncCollection)
+    mock_collection5.metadata = {
+        "created-by": "VectorCode",
+        "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
+        "hostname": "wrong_host",
+    }
+
+    mock_client.list_collections.return_value = [
+        "collection1",
+        "collection2",
+        "collection3",
+        "collection4",
+        "collection5",
+    ]
+    mock_client.get_collection.side_effect = [
+        mock_collection1,
+        mock_collection2,
+        mock_collection3,
+        mock_collection4,
+        mock_collection5,
+    ]
+
+    collections = [
+        collection async for collection in get_collections(mock_client)
+    ]  # call get_collections
+    assert len(collections) == 1
+    assert collections[0] == mock_collection1
+
+
+def test_get_embedding_function_fallback():
+    # Test with an invalid embedding function that causes AttributeError
+    config = Config(embedding_function="InvalidFunction", embedding_params={})
+    embedding_function = get_embedding_function(config)
+    assert "SentenceTransformerEmbeddingFunction" in str(type(embedding_function))
+
+
+@pytest.mark.asyncio
+async def test_wait_for_server_request_error():
+    # Mocking httpx.AsyncClient to raise a RequestError
+    with patch("httpx.AsyncClient") as mock_client:
+        mock_client.return_value.__aenter__.return_value.get.side_effect = (
+            httpx.RequestError("Simulated request error")
+        )
+        with pytest.raises(TimeoutError):
+            await wait_for_server("localhost", 9999, timeout=1)

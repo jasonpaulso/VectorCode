@@ -9,10 +9,13 @@ import pytest
 from vectorcode.cli_utils import (
     CliAction,
     Config,
+    QueryInclude,
     expand_envs_in_dict,
     expand_globs,
     expand_path,
     find_project_config_dir,
+    find_project_root,
+    get_project_config,
     load_config_file,
     parse_cli_args,
 )
@@ -274,3 +277,120 @@ async def test_cli_arg_parser():
         assert config.query == ["test_query"]
         assert config.n_result == 5
         assert config.use_absolute_path
+
+
+def test_query_include_to_header():
+    assert QueryInclude.path.to_header() == "Path: "
+    assert QueryInclude.document.to_header() == "Document:\n"
+
+
+def test_find_project_root():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Test when no anchor file exists
+        assert find_project_root(temp_dir) is None
+
+        # Test when anchor file exists
+        os.makedirs(os.path.join(temp_dir, ".vectorcode"))
+        assert find_project_root(temp_dir) == temp_dir
+
+        # Test when start_from is a file
+        test_file = os.path.join(temp_dir, "test_file.txt")
+        open(test_file, "a").close()
+        assert find_project_root(test_file) == temp_dir
+
+
+@pytest.mark.asyncio
+async def test_get_project_config_no_local_config():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        config = await get_project_config(temp_dir)
+        assert config.host == "127.0.0.1"  # Ensure global config or default is loaded
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_no_action():
+    with patch("sys.argv", ["vectorcode"]):
+        with pytest.raises(SystemExit):
+            await parse_cli_args()
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_include_argument():
+    with patch(
+        "sys.argv",
+        [
+            "vectorcode",
+            "query",
+            "test_query",
+            "--include",
+            "path",
+            "document",
+        ],
+    ):
+        config = await parse_cli_args()
+        assert config.include == [QueryInclude.path, QueryInclude.document]
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_vectorise():
+    with patch("sys.argv", ["vectorcode", "vectorise", "file1.txt"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.vectorise
+        assert config.files == ["file1.txt"]
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_vectorise_no_files():
+    with patch("sys.argv", ["vectorcode", "vectorise"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.vectorise
+        assert config.files == []
+
+
+@pytest.mark.asyncio
+async def test_get_project_config_local_config(tmp_path):
+    # Create a temporary directory and a .vectorcode subdirectory
+    project_root = tmp_path / "project"
+    vectorcode_dir = project_root / ".vectorcode"
+    vectorcode_dir.mkdir(parents=True)
+
+    # Create a config.json file inside .vectorcode with some custom settings
+    config_file = vectorcode_dir / "config.json"
+    config_file.write_text('{"host": "test_host", "port": 9999}')
+
+    # Call get_project_config and check if it returns the custom settings
+    config = await get_project_config(project_root)
+    assert config.host == "test_host"
+    assert config.port == 9999
+
+    # Clean up the temporary directory
+    # shutil.rmtree(tmp_path)  # Use tmp_path fixture, no need to remove manually
+
+
+def test_find_project_root_file_input(tmp_path):
+    # Create a temporary file
+    temp_file = tmp_path / "temp_file.txt"
+    temp_file.write_text("test content")
+
+    # Create a .vectorcode directory in the parent directory
+    vectorcode_dir = tmp_path / ".vectorcode"
+    vectorcode_dir.mkdir()
+
+    # Call find_project_root with the temporary file path
+    project_root = find_project_root(temp_file)
+
+    # Assert that it returns the parent directory (tmp_path)
+    assert str(project_root) == str(tmp_path)
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_update():
+    with patch("sys.argv", ["vectorcode", "update"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.update
+
+
+@pytest.mark.asyncio
+async def test_parse_cli_args_clean():
+    with patch("sys.argv", ["vectorcode", "clean"]):
+        config = await parse_cli_args()
+        assert config.action == CliAction.clean
