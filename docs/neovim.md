@@ -463,9 +463,11 @@ end
 
 ## Integrations
 
-See [the wiki](https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations)
-for instructions to use this plugin with 
-[milanglacier/minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim), 
-[olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim)
-and 
-[nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim)
+[The wiki](https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations)
+contains instructions and config examples to integrate VectorCode with the
+following plugins:
+
+- [milanglacier/minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim);
+- [olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim);
+- [nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim);
+- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim).
