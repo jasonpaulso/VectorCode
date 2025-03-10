@@ -3,15 +3,12 @@ import logging
 import os
 import sys
 import traceback
-from pathlib import Path
 
 from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
-    find_project_config_dir,
     find_project_root,
     get_project_config,
-    load_config_file,
     parse_cli_args,
 )
 from vectorcode.common import start_server, try_server
