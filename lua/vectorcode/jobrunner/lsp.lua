@@ -1,4 +1,7 @@
-if vim.system({ "vectorcode-server", "--version" }):wait().code ~= 0 then
+if
+  vim.fn.executable("vectorcode-server") ~= 1
+  or vim.system({ "vectorcode-server", "--version" }):wait().code ~= 0
+then
   return nil
 end
 
