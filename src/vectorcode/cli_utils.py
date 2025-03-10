@@ -175,7 +175,7 @@ def get_cli_parser():
         help="Vectorise and send documents to chromadb.",
     )
     vectorise_parser.add_argument(
-        "file_paths", nargs="+", help="Paths to files to be vectorised."
+        "file_paths", nargs="*", help="Paths to files to be vectorised."
     ).complete = shtab.FILE
     vectorise_parser.add_argument(
         "--recursive",

@@ -230,6 +230,15 @@ This command also respects `.gitignore`. It by default skips files in
 `.gitignore`. To override this, run the `vectorise` command with `-f`/`--force`
 flag.
 
+As a shorthand, you can create a file at `project_root/.vectorcode/vectorcode.include`.
+This file should follow the same syntax as a 
+[`gitignore` file](https://git-scm.com/docs/gitignore). Files matched by this
+specs will be vectorised when you run `vectorcode vectorise` without specifying
+files. This file has lower priority than `.gitignore`, but you can override this
+by the `-f` flag. It also doesn't assume `--recursive`, so if you want to add a
+whole directory to this file, you can use `dir/**`, which matches all content
+of `dir/` recursively.
+
 There's also a `update` subcommand, which updates the embedding for all the indexed 
 files and remove the embeddings for files that no longer exist.
 
