@@ -105,7 +105,12 @@ local function cleanup_lsp_requests()
       CACHE[data.bufnr].jobs[request] = nil
     end
   end
-  for bufnr, cache in pairs(CACHE) do
+  for _, cache in pairs(CACHE) do
+    for req, _ in pairs(cache.jobs) do
+      if client.requests[req] == nil then
+        cache.jobs[req] = nil
+      end
+    end
     cache.job_count = #vim.tbl_keys(cache.jobs)
   end
 end
@@ -119,7 +124,7 @@ local function kill_jobs(bufnr)
   if client == nil then
     return
   end
-  for request_id, time in pairs(CACHE[bufnr].jobs) do
+  for request_id, _ in pairs(CACHE[bufnr].jobs) do
     if
       client.requests[request_id] ~= nil
       and client.requests[request_id].type == "pending"
@@ -216,7 +221,7 @@ end
 
 M.register_buffer = vc_config.check_cli_wrap(
   ---This function registers a buffer to be cached by VectorCode. The
-  ---registered buffer can be aquired by the `query_from_cache` API.
+  ---registered buffer can be acquired by the `query_from_cache` API.
   ---The retrieval of the files occurs in the background, so this
   ---function will not block the main thread.
   ---
