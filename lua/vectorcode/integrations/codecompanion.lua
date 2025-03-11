@@ -1,22 +1,42 @@
 ---@module "codecompanion"
 
----@alias tool_opts {max_num: integer?, default_num: integer?, include_stderr: boolean?}
+---@alias tool_opts {max_num: integer?, default_num: integer?, include_stderr: boolean?, use_lsp: boolean}
 
 local check_cli_wrap = require("vectorcode.config").check_cli_wrap
 local notify_opts = require("vectorcode.config").notify_opts
 
+local job_runner = nil
+---@param use_lsp boolean
+local function initialise_runner(use_lsp)
+  if job_runner == nil then
+    if use_lsp then
+      job_runner = require("vectorcode.jobrunner.lsp")
+    end
+    if job_runner == nil then
+      job_runner = require("vectorcode.jobrunner.cmd")
+      if use_lsp then
+        vim.schedule_wrap(vim.notify)(
+          "Failed to initialise the LSP runner. Falling back to cmd runner.",
+          vim.log.levels.WARN,
+          notify_opts
+        )
+      end
+    end
+  end
+end
 ---@param opts tool_opts?
 ---@return CodeCompanion.Agent.Tool
 local make_tool = check_cli_wrap(function(opts)
   opts = vim.tbl_deep_extend(
     "force",
-    { max_num = -1, default_num = 10, include_stderr = false },
+    { max_num = -1, default_num = 10, include_stderr = false, use_lsp = false },
     opts or {}
   )
   local capping_message = ""
   if opts.max_num > 0 then
     capping_message = ("  - Request for at most %d documents"):format(opts.max_num)
   end
+
   return {
     name = "vectorcode",
     cmds = {
@@ -25,12 +45,14 @@ local make_tool = check_cli_wrap(function(opts)
       ---@param input table
       ---@return nil|{ status: string, msg: string }
       function(agent, action, input)
+        initialise_runner(opts.use_lsp)
+        assert(job_runner ~= nil)
         local args = { "query", "-n", tostring(action.count) }
         if type(action.query) == "string" then
           action.query = { action.query }
         end
         vim.list_extend(args, action.query)
-        require("vectorcode.jobrunner.lsp").run_async(args, function(result, error)
+        job_runner.run_async(args, function(result, error)
           if result then ---@cast result VectorCode.Result[]
             for i, file in pairs(result) do
               if opts.max_num < 0 or i <= opts.max_num then
@@ -53,6 +75,7 @@ local make_tool = check_cli_wrap(function(opts)
             end
           end
         end, 0)
+        return { status = "success" }
       end,
     },
     schema = {
