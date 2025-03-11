@@ -5,9 +5,6 @@ import sys
 import time
 import uuid
 
-from chromadb.api import AsyncClientAPI
-from chromadb.api.models.AsyncCollection import AsyncCollection
-
 try:
     from lsprotocol import types
     from pygls.server import LanguageServer
@@ -26,13 +23,9 @@ from vectorcode.cli_utils import (
     parse_cli_args,
 )
 from vectorcode.common import get_client, get_collection, try_server
-from vectorcode.subcommands.clean import run_clean_on_client
 from vectorcode.subcommands.query import get_query_result_files
 
 cached_project_configs: dict[str, Config] = {}
-cached_clients: dict[tuple[str, int], AsyncClientAPI] = {}
-cached_collections: dict[str, AsyncCollection] = {}
-
 DEFAULT_PROJECT_ROOT: str | None = None
 
 
@@ -50,11 +43,6 @@ async def make_caches(project_root: str):
         raise ConnectionError(
             "Failed to find an existing ChromaDB server, which is a hard requirement for LSP mode!"
         )
-    if cached_clients.get((host, port)) is None:
-        cached_clients[(host, port)] = await get_client(config)
-    client = cached_clients[(host, port)]
-    if cached_collections.get(project_root) is None:
-        cached_collections[project_root] = await get_collection(client, config, True)
 
 
 def get_arg_parser():
@@ -109,7 +97,11 @@ async def lsp_start() -> int:
         ].merge_from(parsed_args)
         final_configs.pipe = True
         progress_token = str(uuid.uuid4())
-        collection = cached_collections[str(final_configs.project_root)]
+        collection = await get_collection(
+            client=await get_client(final_configs),
+            configs=final_configs,
+            make_if_missing=final_configs.action in {CliAction.vectorise},
+        )
         await ls.progress.create_async(progress_token)
         match final_configs.action:
             case CliAction.query:
@@ -141,12 +133,7 @@ async def lsp_start() -> int:
                     file=sys.stderr,
                 )
 
-    try:
-        await asyncio.to_thread(server.start_io)
-    finally:
-        for client in cached_clients.values():
-            # clean up empty collections.
-            await run_clean_on_client(client, True)
+    await asyncio.to_thread(server.start_io)
 
     return 0
 

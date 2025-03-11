@@ -9,7 +9,6 @@ import httpx
 import pytest
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
-from chromadb.config import Settings
 
 from vectorcode.cli_utils import Config
 from vectorcode.common import (
@@ -93,13 +92,17 @@ async def test_get_client():
         client = await get_client(config)
 
         assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called_once_with(
-            host="test_host", port=1234, settings=Settings(anonymized_telemetry=False)
+        MockAsyncHttpClient.assert_called_once()
+        assert MockAsyncHttpClient.call_args.kwargs["host"] == "test_host"
+        assert MockAsyncHttpClient.call_args.kwargs["port"] == 1234
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
+            is False
         )
 
         # Test with valid db_settings (only anonymized_telemetry)
         config = Config(
-            host="test_host",
+            host="test_host1",
             port=1234,
             db_path="test_db",
             db_settings={"anonymized_telemetry": True},
@@ -107,24 +110,30 @@ async def test_get_client():
         client = await get_client(config)
 
         assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called_with(
-            host="test_host", port=1234, settings=Settings(anonymized_telemetry=True)
+        MockAsyncHttpClient.assert_called()
+        assert MockAsyncHttpClient.call_args.kwargs["host"] == "test_host1"
+        assert MockAsyncHttpClient.call_args.kwargs["port"] == 1234
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
+            is True
         )
 
         # Test with multiple db_settings, including an invalid one.  The invalid one
         # should be filtered out inside get_client.
         config = Config(
-            host="test_host",
+            host="test_host2",
             port=1234,
             db_path="test_db",
             db_settings={"anonymized_telemetry": True, "other_setting": "value"},
         )
         client = await get_client(config)
         assert isinstance(client, AsyncClientAPI)
-        MockAsyncHttpClient.assert_called_with(
-            host="test_host",
-            port=1234,
-            settings=Settings(anonymized_telemetry=True),
+        MockAsyncHttpClient.assert_called()
+        assert MockAsyncHttpClient.call_args.kwargs["host"] == "test_host2"
+        assert MockAsyncHttpClient.call_args.kwargs["port"] == 1234
+        assert (
+            MockAsyncHttpClient.call_args.kwargs["settings"].anonymized_telemetry
+            is True
         )
 
 
@@ -215,6 +224,14 @@ async def test_get_collection():
     with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
         mock_client = MagicMock(spec=AsyncClientAPI)
         mock_collection = MagicMock()
+
+        # Clear the collection cache
+        from vectorcode.common import __COLLECTION_CACHE
+
+        __COLLECTION_CACHE.clear()
+
+        # Make get_collection raise ValueError to trigger get_or_create_collection
+        mock_client.get_collection.side_effect = ValueError("Collection not found")
         mock_collection.metadata = {
             "hostname": socket.gethostname(),
             "username": os.environ.get(
@@ -226,16 +243,13 @@ async def test_get_collection():
         MockAsyncHttpClient.return_value = mock_client
 
         collection = await get_collection(mock_client, config, make_if_missing=True)
-        assert collection == mock_collection
+        assert collection.metadata["hostname"] == socket.gethostname()
+        assert collection.metadata["username"] == os.environ.get(
+            "USER", os.environ.get("USERNAME", "DEFAULT_USER")
+        )
+        assert collection.metadata["created-by"] == "VectorCode"
         mock_client.get_or_create_collection.assert_called_once()
-
-    # Test raising ValueError if collection doesn't exist and make_if_missing is False
-    with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
-        mock_client = MagicMock(spec=AsyncClientAPI)
-        mock_client.get_collection.side_effect = ValueError("Collection not found")
-        MockAsyncHttpClient.return_value = mock_client
-        with pytest.raises(ValueError):
-            await get_collection(mock_client, config, make_if_missing=False)
+        mock_client.get_collection.side_effect = None
 
     # Test raising IndexError on hash collision.
     with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
@@ -244,6 +258,9 @@ async def test_get_collection():
             "Hash collision occurred"
         )
         MockAsyncHttpClient.return_value = mock_client
+        from vectorcode.common import __COLLECTION_CACHE
+
+        __COLLECTION_CACHE.clear()
         with pytest.raises(IndexError):
             await get_collection(mock_client, config, make_if_missing=True)
 

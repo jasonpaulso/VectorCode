@@ -4,7 +4,7 @@ import os
 import socket
 import subprocess
 import sys
-from typing import Any, AsyncGenerator, Coroutine
+from typing import AsyncGenerator
 
 import chromadb
 import httpx
@@ -102,21 +102,26 @@ async def start_server(configs: Config):
     return process
 
 
-def get_client(configs: Config) -> Coroutine[Any, Any, AsyncClientAPI]:
+__CLIENT_CACHE: dict[tuple[str, int], AsyncClientAPI] = {}
+
+
+async def get_client(configs: Config) -> AsyncClientAPI:
     assert configs.host is not None
     assert configs.port is not None
-    assert configs.db_path is not None
-    settings = {"anonymized_telemetry": False}
-    if isinstance(configs.db_settings, dict):
-        valid_settings = {
-            k: v for k, v in configs.db_settings.items() if k in Settings.__fields__
-        }
-        settings.update(valid_settings)
-    return chromadb.AsyncHttpClient(
-        host=configs.host or "localhost",
-        port=configs.port or 8000,
-        settings=Settings(**settings),
-    )
+    client_entry = (configs.host, configs.port)
+    if __CLIENT_CACHE.get(client_entry) is None:
+        settings = {"anonymized_telemetry": False}
+        if isinstance(configs.db_settings, dict):
+            valid_settings = {
+                k: v for k, v in configs.db_settings.items() if k in Settings.__fields__
+            }
+            settings.update(valid_settings)
+        __CLIENT_CACHE[client_entry] = await chromadb.AsyncHttpClient(
+            host=configs.host or "localhost",
+            port=configs.port or 8000,
+            settings=Settings(**settings),
+        )
+    return __CLIENT_CACHE[client_entry]
 
 
 def get_collection_name(full_path: str) -> str:
@@ -142,6 +147,9 @@ def get_embedding_function(configs: Config) -> chromadb.EmbeddingFunction:
         return embedding_functions.SentenceTransformerEmbeddingFunction()
 
 
+__COLLECTION_CACHE: dict[str, AsyncCollection] = {}
+
+
 async def get_collection(
     client: AsyncClientAPI, configs: Config, make_if_missing: bool = False
 ):
@@ -151,33 +159,44 @@ async def get_collection(
     """
     assert configs.project_root is not None
     full_path = str(expand_path(str(configs.project_root), absolute=True))
-    collection_name = get_collection_name(full_path)
-    embedding_function = get_embedding_function(configs)
-    collection_meta = {
-        "path": full_path,
-        "hostname": socket.gethostname(),
-        "created-by": "VectorCode",
-        "username": os.environ.get("USER", os.environ.get("USERNAME", "DEFAULT_USER")),
-        "embedding_function": configs.embedding_function,
-    }
+    if __COLLECTION_CACHE.get(full_path) is None:
+        collection_name = get_collection_name(full_path)
+        embedding_function = get_embedding_function(configs)
+        collection_meta = {
+            "path": full_path,
+            "hostname": socket.gethostname(),
+            "created-by": "VectorCode",
+            "username": os.environ.get(
+                "USER", os.environ.get("USERNAME", "DEFAULT_USER")
+            ),
+            "embedding_function": configs.embedding_function,
+        }
 
-    if not make_if_missing:
-        return await client.get_collection(collection_name, embedding_function)
-    collection = await client.get_or_create_collection(
-        collection_name,
-        metadata=collection_meta,
-        embedding_function=embedding_function,
-    )
-    if (
-        not collection.metadata.get("hostname") == socket.gethostname()
-        or collection.metadata.get("username")
-        not in (os.environ.get("USER"), os.environ.get("USERNAME"), "DEFAULT_USER")
-        or not collection.metadata.get("created-by") == "VectorCode"
-    ):
-        raise IndexError(
-            "Failed to create the collection due to hash collision. Please file a bug report."
-        )
-    return collection
+        if not make_if_missing:
+            __COLLECTION_CACHE[full_path] = await client.get_collection(
+                collection_name, embedding_function
+            )
+        else:
+            collection = await client.get_or_create_collection(
+                collection_name,
+                metadata=collection_meta,
+                embedding_function=embedding_function,
+            )
+            if (
+                not collection.metadata.get("hostname") == socket.gethostname()
+                or collection.metadata.get("username")
+                not in (
+                    os.environ.get("USER"),
+                    os.environ.get("USERNAME"),
+                    "DEFAULT_USER",
+                )
+                or not collection.metadata.get("created-by") == "VectorCode"
+            ):
+                raise IndexError(
+                    "Failed to create the collection due to hash collision. Please file a bug report."
+                )
+            __COLLECTION_CACHE[full_path] = collection
+    return __COLLECTION_CACHE[full_path]
 
 
 def verify_ef(collection: AsyncCollection, configs: Config):
