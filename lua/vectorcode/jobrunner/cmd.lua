@@ -13,7 +13,13 @@ function runner.run_async(args, callback)
     args = args,
     on_exit = function(self, _, _)
       jobs[self.pid] = nil
-      callback(self:result(), self:stderr_result())
+      local result = self:result()
+      local ok, decoded = pcall(vim.json.decode, table.concat(result, ""))
+      if ok then
+        callback(decoded, self:stderr_result())
+      else
+        callback({}, self:stderr_result())
+      end
     end,
   })
   jobs[job.pid] = job
@@ -30,8 +36,13 @@ function runner.run(args, timeout_ms, bufnr)
     res = result
     err = error
   end, bufnr)
-  jobs[pid]:wait(timeout_ms)
-  return res, err
+  if pid ~= nil then
+    jobs[pid]:wait(timeout_ms)
+    jobs[pid] = nil
+    return res, err
+  else
+    return {}, err
+  end
 end
 
 function runner.is_job_running(job)
