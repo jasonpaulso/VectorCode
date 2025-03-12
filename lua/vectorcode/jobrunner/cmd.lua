@@ -18,7 +18,7 @@ function runner.run_async(args, callback)
       if ok then
         callback(decoded, self:stderr_result())
       else
-        callback({}, self:stderr_result())
+        callback({ result }, self:stderr_result())
       end
     end,
   })
