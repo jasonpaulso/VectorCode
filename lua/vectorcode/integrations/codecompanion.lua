@@ -44,7 +44,7 @@ local make_tool = check_cli_wrap(function(opts)
       ---@param action table
       ---@param input table
       ---@return nil|{ status: string, msg: string }
-      function(agent, action, input)
+      function(agent, action, input, cb)
         initialise_runner(opts.use_lsp)
         assert(job_runner ~= nil)
         local args = { "query", "-n", tostring(action.count) }
@@ -73,9 +73,9 @@ local make_tool = check_cli_wrap(function(opts)
                 }, { visible = false })
               end
             end
+            cb({ status = "success" })
           end
-        end, 0)
-        return { status = "success" }
+        end, agent.chat.bufnr)
       end,
     },
     schema = {
