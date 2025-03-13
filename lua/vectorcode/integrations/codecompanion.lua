@@ -69,7 +69,7 @@ local make_tool = check_cli_wrap(function(opts)
   - Ensure XML is **valid and follows the schema**
   - **Don't escape** special characters
   - Make sure the tools xml block is **surrounded by ```xml**
-  - seperate phrases into distinct keywords when appropriate
+  - separate phrases into distinct keywords when appropriate
   - If a class, type or function has been imported from another file, this tool may be able to find its source. Add the name of the imported symbol to the query
   - The embeddings are mostly generated from source code, so using keywords that may be present in source code may help with the retrieval
   - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags
@@ -78,9 +78,10 @@ local make_tool = check_cli_wrap(function(opts)
   - When providing answers based on VectorCode results, try to give references such as paths to files and line ranges, unless you're told otherwise
   - Include one single command call for VectorCode each time. You may include multiple keywords in the command
   - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks
-  - If the retrieval results do not contain the needed context, increase the number of files to retrieve so that the result will more likely contain the desired files
+  - If the retrieval results do not contain the needed context, increase the file count so that the result will more likely contain the desired files
   - If the returned paths are relative, they are relative to the root of the project directory
   - Do not suggest edits to retrieved files that are outside of the current working directory, unless the user instructed otherwise
+  - If a query failed to retrieve desired results, a new attempt should use different keywords that are orthogonal to the previous ones but with similar meanings
   %s
   %s
 
