@@ -59,7 +59,7 @@ local make_tool = check_cli_wrap(function(opts)
           type(cb) == "function",
           "Please upgrade CodeCompanion.nvim to at least 13.5.0"
         )
-        local args = { "query", "-n", tostring(action.count) }
+        local args = { "query", "--pipe", "-n", tostring(action.count) }
         if type(action.query) == "string" then
           action.query = { action.query }
         end
