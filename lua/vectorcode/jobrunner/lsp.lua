@@ -17,7 +17,7 @@ local notify_opts = vc_config.notify_opts
 ---@param ok_to_fail boolean
 local function get_client(ok_to_fail)
   ok_to_fail = ok_to_fail or true
-  if #vim.lsp.get_clients({ name = "vectorcode-server" }) == 1 then
+  if #vim.lsp.get_clients({ name = "vectorcode-server" }) > 0 then
     CLIENT = vim.lsp.get_clients({ name = "vectorcode-server" })[1]
   else
     local cmd = { "vectorcode-server" }

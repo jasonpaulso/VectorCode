@@ -35,8 +35,14 @@ end
 
 ---@return boolean
 local function is_lsp_running()
-  return client_id ~= nil
+  local clients = vim.lsp.get_clients({ name = "vectorcode-server" })
+  if #clients == 0 then
+    return false
+  end
+  client_id = clients[1].id
+  return true
 end
+
 ---@param project_root string?
 ---@param ok_to_fail boolean?
 ---@return boolean
