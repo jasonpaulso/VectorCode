@@ -301,9 +301,9 @@ function M.async_check(check_item, on_success, on_failure)
   check_item = check_item or "config"
   vim.system({ "vectorcode", "check", check_item }, {}, function(out)
     if out.code == 0 and type(on_success) == "function" then
-      on_success(out)
+      vim.schedule_wrap(on_success)(out)
     elseif out.code ~= 0 and type(on_failure) == "function" then
-      on_failure(out)
+      vim.schedule_wrap(on_failure)(out)
     end
   end)
 end
