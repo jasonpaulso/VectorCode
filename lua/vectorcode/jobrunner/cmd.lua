@@ -6,6 +6,11 @@ local Job = require("plenary.job")
 local jobs = {}
 
 function runner.run_async(args, callback)
+  if type(callback) == "function" then
+    callback = vim.schedule_wrap(callback)
+  else
+    callback = nil
+  end
   local cmd = { "vectorcode" }
   vim.list_extend(cmd, args)
   local job = Job:new({
@@ -15,10 +20,12 @@ function runner.run_async(args, callback)
       jobs[self.pid] = nil
       local result = self:result()
       local ok, decoded = pcall(vim.json.decode, table.concat(result, ""))
-      if ok then
-        callback(decoded, self:stderr_result())
-      else
-        callback({ result }, self:stderr_result())
+      if callback ~= nil then
+        if ok then
+          callback(decoded, self:stderr_result())
+        else
+          callback({ result }, self:stderr_result())
+        end
       end
     end,
   })

@@ -2,8 +2,9 @@
 
 ---@alias tool_opts {max_num: integer?, default_num: integer?, include_stderr: boolean?, use_lsp: boolean}
 
-local check_cli_wrap = require("vectorcode.config").check_cli_wrap
-local notify_opts = require("vectorcode.config").notify_opts
+local vc_config = require("vectorcode.config")
+local check_cli_wrap = vc_config.check_cli_wrap
+local notify_opts = vc_config.notify_opts
 
 local job_runner = nil
 ---@param use_lsp boolean
@@ -27,6 +28,13 @@ end
 ---@param opts tool_opts?
 ---@return CodeCompanion.Agent.Tool
 local make_tool = check_cli_wrap(function(opts)
+  if opts == nil or opts.use_lsp == nil then
+    opts = vim.tbl_deep_extend(
+      "force",
+      opts or {},
+      { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
+    )
+  end
   opts = vim.tbl_deep_extend(
     "force",
     { max_num = -1, default_num = 10, include_stderr = false, use_lsp = false },
@@ -47,33 +55,23 @@ local make_tool = check_cli_wrap(function(opts)
       function(agent, action, input, cb)
         initialise_runner(opts.use_lsp)
         assert(job_runner ~= nil)
+        assert(
+          type(cb) == "function",
+          "Please upgrade CodeCompanion.nvim to at least 13.5.0"
+        )
         local args = { "query", "-n", tostring(action.count) }
         if type(action.query) == "string" then
           action.query = { action.query }
         end
         vim.list_extend(args, action.query)
         job_runner.run_async(args, function(result, error)
-          if result then ---@cast result VectorCode.Result[]
-            for i, file in pairs(result) do
-              if opts.max_num < 0 or i <= opts.max_num then
-                agent.chat:add_message({
-                  role = "user",
-                  content = string.format(
-                    [[Here is a file the VectorCode tool retrieved:
-<path>
-%s
-</path>
-<content>
-%s
-</content>
-]],
-                    file.path,
-                    file.document
-                  ),
-                }, { visible = false })
-              end
-            end
-            cb({ status = "success" })
+          if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
+            cb({ status = "success", data = result })
+          else
+            cb({
+              status = "error",
+              data = table.concat(vim.iter(error):flatten(math.huge):totable(), "\n"),
+            })
           end
         end, agent.chat.bufnr)
       end,
@@ -151,7 +149,30 @@ Remember:
         xml2lua.toXml({ tools = { schema[2] } })
       )
     end,
-    output = { success = function(...) end, error = function(...) end },
+    output = {
+      success = function(agent, cmd, stdout)
+        stdout = stdout[1]
+        for i, file in pairs(stdout) do
+          if opts.max_num < 0 or i <= opts.max_num then
+            agent.chat:add_message({
+              role = "user",
+              content = string.format(
+                [[Here is a file the VectorCode tool retrieved:
+<path>
+%s
+</path>
+<content>
+%s
+</content>
+]],
+                file.path,
+                file.document
+              ),
+            }, { visible = false })
+          end
+        end
+      end,
+    },
   }
 end)
 
@@ -164,28 +185,25 @@ return {
         ---@param chat CodeCompanion.Chat
         callback = function(chat)
           local codebase_prompt = ""
-          local ok, vc_config = pcall(require, "vectorcode.config")
-          if ok then
-            local vc_cache = vc_config.get_cacher_backend()
-            local bufnr = chat.context.bufnr
-            if not vc_cache.buf_is_registered(bufnr) then
-              return
-            end
-            codebase_prompt =
-              "The following are relevant files from the repository. Use them as extra context."
-            local query_result = vc_cache.make_prompt_component(bufnr, component_cb)
-            local id = tostring(query_result.count) .. " file(s) from codebase"
-            codebase_prompt = codebase_prompt .. query_result.content
-            chat:add_message(
-              { content = codebase_prompt, role = "user" },
-              { visible = false, id = id }
-            )
-            chat.references:add({
-              source = "VectorCode",
-              name = "VectorCode",
-              id = id,
-            })
+          local vc_cache = vc_config.get_cacher_backend()
+          local bufnr = chat.context.bufnr
+          if not vc_cache.buf_is_registered(bufnr) then
+            return
           end
+          codebase_prompt =
+            "The following are relevant files from the repository. Use them as extra context."
+          local query_result = vc_cache.make_prompt_component(bufnr, component_cb)
+          local id = tostring(query_result.count) .. " file(s) from codebase"
+          codebase_prompt = codebase_prompt .. query_result.content
+          chat:add_message(
+            { content = codebase_prompt, role = "user" },
+            { visible = false, id = id }
+          )
+          chat.references:add({
+            source = "VectorCode",
+            name = "VectorCode",
+            id = id,
+          })
         end,
       }
     end),

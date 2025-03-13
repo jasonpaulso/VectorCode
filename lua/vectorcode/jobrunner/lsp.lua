@@ -85,11 +85,16 @@ function jobrunner.run_async(args, callback, bufnr)
   assert(CLIENT ~= nil)
   assert(bufnr ~= nil)
 
+  if not CLIENT.attached_buffers[bufnr] then
+    vim.lsp.buf_attach_client(bufnr, CLIENT.id)
+  end
   local _, id = CLIENT.request(
     vim.lsp.protocol.Methods.workspace_executeCommand,
     { command = "vectorcode", arguments = args },
     function(err, result, _, _)
-      callback(result, err)
+      if type(callback) == "function" then
+        vim.schedule_wrap(callback)(result, err)
+      end
     end,
     bufnr
   )
