@@ -72,41 +72,41 @@ async def mcp_server():
 
     @mcp.tool(
         "query",
-        description="Use VectorCode to perform vector similarity search on the repository and return a list of relevant file paths and contents.",
+        description="Use VectorCode to perform vector similarity search on the repository and return a list of relevant file paths and contents. Make sure `project_root` is one of the values from the `list_collections` tool.",
     )
     async def query_tool(
-        n_query: int, query_messages: list[str], project_root: Optional[str] = None
+        n_query: int, query_messages: list[str], project_root: str
     ) -> list[str]:
         """
         n_query: number of files to retrieve;
         query_messages: keywords to query.
         collection_path: Directory to the repository;
         """
-        if project_root is None:
-            if default_collection is None or default_config is None:
-                raise McpError(
-                    ErrorData(code=1, message="Please specify project_root.")
+        if not os.path.isdir(project_root):
+            raise McpError(
+                ErrorData(
+                    code=1,
+                    message="Use `list_collections` tool to get a list of valid paths for this field.",
                 )
-            collection = default_collection
-            config = default_config
+            )
         else:
             config = await get_project_config(project_root)
             config.project_root = project_root
-            client = await get_client(config)
             try:
+                client = await get_client(config)
                 collection = await get_collection(client, config, False)
-            except (ValueError, IndexError):
+            except Exception:
                 raise McpError(
                     ErrorData(
                         code=1,
-                        message=f"Failed to access the collection at {project_root}",
+                        message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
                     )
                 )
         if collection is None:
             raise McpError(
                 ErrorData(
                     code=1,
-                    message=f"Failed to access the collection at {project_root}",
+                    message=f"Failed to access the collection at {project_root}. Use `list_collections` tool to get a list of valid paths for this field.",
                 )
             )
         query_config = await config.merge_from(
