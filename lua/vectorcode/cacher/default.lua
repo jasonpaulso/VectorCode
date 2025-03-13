@@ -119,7 +119,7 @@ end
 
 M.register_buffer = vc_config.check_cli_wrap(
   ---This function registers a buffer to be cached by VectorCode. The
-  ---registered buffer can be aquired by the `query_from_cache` API.
+  ---registered buffer can be acquired by the `query_from_cache` API.
   ---The retrieval of the files occurs in the background, so this
   ---function will not block the main thread.
   ---
@@ -166,6 +166,7 @@ M.register_buffer = vc_config.check_cli_wrap(
           or (vim.uv.clock_gettime("realtime").sec - cache.last_run) > opts.debounce
         then
           local cb = cache.options.query_cb
+          assert(type(cb) == "function")
           async_runner(cb(bufnr), bufnr)
         end
       end,

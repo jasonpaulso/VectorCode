@@ -30,11 +30,11 @@
 
 ---Options for the registration of an async cache for a buffer.
 ---@class VectorCode.RegisterOpts: VectorCode.QueryOpts
----@field debounce integer Seconds. Default: 10
----@field events string|string[] autocmd events that triggers async jobs. Default: `{"BufWritePost", "InsertEnter", "BufReadPost"}`
----@field single_job boolean Whether to restrict to 1 async job per buffer. Default: false
----@field query_cb VectorCode.QueryCallback Function that accepts the buffer ID and returns the query message(s). Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`
----@field run_on_register boolean Whether to run the query when registering. Default: false
+---@field debounce integer? Seconds. Default: 10
+---@field events string|string[]|nil autocmd events that triggers async jobs. Default: `{"BufWritePost", "InsertEnter", "BufReadPost"}`
+---@field single_job boolean? Whether to restrict to 1 async job per buffer. Default: false
+---@field query_cb VectorCode.QueryCallback? Function that accepts the buffer ID and returns the query message(s). Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`
+---@field run_on_register boolean? Whether to run the query when registering. Default: false
 ---@field project_root string?
 
 ---A unified interface used by `lsp` backend and `default` backend
