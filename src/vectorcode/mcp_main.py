@@ -6,6 +6,7 @@ from typing import Optional
 
 from chromadb.api import AsyncClientAPI
 from chromadb.api.models.AsyncCollection import AsyncCollection
+from chromadb.errors import InvalidCollectionException
 
 try:
     from mcp import ErrorData, McpError
@@ -39,6 +40,7 @@ async def mcp_server():
     global default_config, default_client, default_collection
     # sys.stderr = open(os.devnull, "w")
     local_config_dir = await find_project_config_dir(".")
+    print(local_config_dir, file=sys.stderr)
 
     if local_config_dir is not None:
         project_root = str(Path(local_config_dir).parent.resolve())
@@ -48,7 +50,10 @@ async def mcp_server():
         )
         default_config.project_root = project_root
         default_client = await get_client(default_config)
-        default_collection = await get_collection(default_client, default_config)
+        try:
+            default_collection = await get_collection(default_client, default_config)
+        except InvalidCollectionException:
+            default_collection = None
 
     @mcp.tool(
         "list_collections",
@@ -97,6 +102,13 @@ async def mcp_server():
                         message=f"Failed to access the collection at {project_root}",
                     )
                 )
+        if collection is None:
+            raise McpError(
+                ErrorData(
+                    code=1,
+                    message=f"Failed to access the collection at {project_root}",
+                )
+            )
         query_config = await config.merge_from(
             Config(n_result=n_query, query=query_messages)
         )
