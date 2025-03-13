@@ -76,4 +76,9 @@ and chat plugin available on VSCode and JetBrain products.
 
 ## Credit
 
-- Thank [@milanglacier](https://github.com/milanglacier) (and [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim)) for the support when this project was still in early stage.
+- Thank [@milanglacier](https://github.com/milanglacier) (and [minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim)) for the support when this project was still in early stage;
+- Thank [@olimorris](https://github.com/olimorris) for the help (personally and
+  from [codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim))
+  when this project made initial attempts at tool-calling;
+- Thank [@ravitemer](https://github.com/ravitemer) for the help to interface
+  VectorCode with [MCP](https://modelcontextprotocol.io/introduction).
