@@ -121,7 +121,14 @@ async def lsp_start() -> int:
                 ):
                     if os.path.isfile(path):
                         with open(path) as fin:
-                            final_results.append({"path": path, "document": fin.read()})
+                            output_path = path
+                            if not final_configs.use_absolute_path:
+                                output_path = os.path.relpath(
+                                    path, final_configs.project_root
+                                )
+                            final_results.append(
+                                {"path": output_path, "document": fin.read()}
+                            )
                 ls.progress.end(
                     progress_token,
                     types.WorkDoneProgressEnd(
