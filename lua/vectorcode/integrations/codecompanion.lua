@@ -89,6 +89,7 @@ local make_tool = check_cli_wrap(function(opts)
               and vim.uv.fs_stat(action.options.project_root).type == "directory"
             then
               vim.list_extend(args, { "--project_root", action.options.project_root })
+              vim.list_extend(args, { "--absolute" })
             else
               agent.chat:add_message(
                 { role = "user", content = "INVALID PROJECT ROOT! USE THE LS COMMAND!" },
