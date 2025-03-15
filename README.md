@@ -56,10 +56,12 @@ and chat plugin available on VSCode and JetBrain products.
 
 ## TODOs
 - [x] query by ~file path~ excluded paths;
-- [ ] chunking support;
+- [x] chunking support;
   - [x] add metadata for files;
   - [x] chunk-size configuration;
-  - [ ] smarter chunking (semantics/syntax based);
+  - [x] smarter chunking (semantics/syntax based), implemented with
+    [py-tree-sitter](https://github.com/tree-sitter/py-tree-sitter) and
+    [tree-sitter-language-pack](https://github.com/Goldziher/tree-sitter-language-pack);
   - [x] configurable document selection from query results.
 - [x] ~NeoVim Lua API with cache to skip the retrieval when a project has not
   been indexed~ Returns empty array instead;

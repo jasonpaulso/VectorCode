@@ -13,7 +13,7 @@ import tqdm
 from chromadb.api.models.AsyncCollection import AsyncCollection
 from chromadb.api.types import IncludeEnum
 
-from vectorcode.chunking import FileChunker
+from vectorcode.chunking import TreeSitterChunker
 from vectorcode.cli_utils import Config, expand_globs, expand_path
 from vectorcode.common import get_client, get_collection, verify_ef
 
@@ -54,24 +54,23 @@ async def chunked_add(
 
     try:
         async with semaphore:
-            with open(full_path_str) as fin:
-                chunks = list(
-                    FileChunker(configs.chunk_size, configs.overlap_ratio).chunk(fin)
+            chunks = list(
+                TreeSitterChunker(configs.chunk_size, configs.overlap_ratio).chunk(
+                    full_path_str
                 )
-                if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
-                    # empty file
-                    return
-                chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
-                async with collection_lock:
-                    for idx in range(0, len(chunks), max_batch_size):
-                        inserted_chunks = chunks[idx : idx + max_batch_size]
-                        await collection.add(
-                            ids=[get_uuid() for _ in inserted_chunks],
-                            documents=inserted_chunks,
-                            metadatas=[
-                                {"path": full_path_str} for _ in inserted_chunks
-                            ],
-                        )
+            )
+            if len(chunks) == 0 or (len(chunks) == 1 and chunks[0] == ""):
+                # empty file
+                return
+            chunks.append(str(os.path.relpath(full_path_str, configs.project_root)))
+            async with collection_lock:
+                for idx in range(0, len(chunks), max_batch_size):
+                    inserted_chunks = chunks[idx : idx + max_batch_size]
+                    await collection.add(
+                        ids=[get_uuid() for _ in inserted_chunks],
+                        documents=inserted_chunks,
+                        metadatas=[{"path": full_path_str} for _ in inserted_chunks],
+                    )
     except UnicodeDecodeError:
         # probably binary. skip it.
         return

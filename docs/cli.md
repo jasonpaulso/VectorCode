@@ -187,7 +187,15 @@ The JSON configuration file may hold the following values:
 - `overlap_ratio`: float between 0 and 1, the ratio of overlapping/shared content 
   between 2 adjacent chunks. A larger ratio improves the coherences of chunks,
   but at the cost of increasing number of entries in the database and hence
-  slowing down the search. Default: `0.2`;
+  slowing down the search. Default: `0.2`. _Starting from 0.4.11, VectorCode
+  will use treesitter to parse languages that it can automatically detect. It
+  uses [pygments](https://github.com/pygments/pygments) to guess the language
+  from filename, and 
+  [tree-sitter-language-pack](https://github.com/Goldziher/tree-sitter-language-pack) 
+  to fetch the correct parser. `overlap_ratio` has no effects when treesitter
+  works. If VectorCode fails to find an appropriate parser, it'll fallback to
+  the legacy naive parser, in which case `overlap_ratio` works exactly in the
+  same way as before;_
 - `query_multplier`: integer, when you use the `query` command to retrieve `n` documents,
   VectorCode will check `n * query_multplier` chunks and return at most `n` 
   documents. A larger value of `query_multplier`
