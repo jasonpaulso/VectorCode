@@ -38,6 +38,10 @@ class NaiveReranker(RerankerBase):
                     continue
                 documents[path].append(distance)
 
+        top_k = int(numpy.mean(tuple(len(i) for i in documents.values())))
+        for key in documents.keys():
+            documents[key] = heapq.nsmallest(top_k, documents[key])
+
         return heapq.nsmallest(
             self.n_result, documents.keys(), lambda x: float(numpy.mean(documents[x]))
         )
@@ -67,6 +71,10 @@ class CrossEncoderReranker(RerankerBase):
                 documents[chunk_metas[rank["corpus_id"]]["path"]].append(
                     float(rank["score"])
                 )
+
+        top_k = int(numpy.mean(tuple(len(i) for i in documents.values())))
+        for key in documents.keys():
+            documents[key] = heapq.nlargest(top_k, documents[key])
 
         return heapq.nlargest(
             self.n_result,
