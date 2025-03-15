@@ -202,6 +202,7 @@ local make_tool = check_cli_wrap(function(opts)
   - Use the `ls` command to retrieve a list of indexed project and pick one that may be relevant, unless the user explicitly mentioned "this project" (or in other equivalent expressions)
   - If a query failed to retrieve desired results, a new attempt should use different keywords that are orthogonal to the previous ones but with similar meanings
   - **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `ls` command or from user input**
+  - Do not use exact query keywords that you have used in a previous tool call in the conversation, unless the user instructed otherwise, or with different count/project_root
   %s
   %s
 
