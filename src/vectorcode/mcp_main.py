@@ -91,7 +91,6 @@ async def mcp_server():
             )
         else:
             config = await get_project_config(project_root)
-            config.project_root = project_root
             try:
                 client = await get_client(config)
                 collection = await get_collection(client, config, False)

@@ -395,8 +395,11 @@ async def get_project_config(project_root: PathLike) -> Config:
         project_root = os.path.abspath(project_root)
     local_config_path = os.path.join(project_root, ".vectorcode", "config.json")
     if os.path.isfile(os.path.join(project_root, ".vectorcode", "config.json")):
-        return await load_config_file(local_config_path)
-    return await load_config_file()
+        config = await load_config_file(local_config_path)
+    else:
+        config = await load_config_file()
+    config.project_root = project_root
+    return config
 
 
 def expand_path(path: PathLike, absolute: bool = False) -> PathLike:
