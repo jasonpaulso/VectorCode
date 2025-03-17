@@ -61,7 +61,7 @@ dev = [
     "coverage>=7.6.12",
     "pytest-asyncio>=0.25.3",
     "debugpy>=1.8.12",
-    "coredumpy<0.5.0",
+    "coredumpy @ git+https://github.com/gaogaotiantian/coredumpy.git#commit=0f9164a67621517e3bd4c6169a3948fcc34beafb",
 ]
 
 [project.optional-dependencies]
