@@ -54,6 +54,8 @@ class TestChunking:
 def test_treesitter_chunker():
     """Test TreeSitterChunker with a sample file using tempfile."""
     chunker = TreeSitterChunker(chunk_size=30)
+
+    # test python
     test_content = r"""
 def foo():
     return "foo"
@@ -67,8 +69,26 @@ def bar():
         test_file = tmp_file.name
 
     chunks = list(chunker.chunk(test_file))
-    assert len(chunks) == 2
-    assert all(len(i) <= 30 for i in chunks)
+    assert chunks == ['def foo():\n    return "foo"', 'def bar():\n    return "bar"']
+    os.remove(test_file)
+
+    # test lua
+    test_content = r"""
+function foo()
+  return "foo"
+end
+
+function bar()
+  return "bar"
+end
+    """
+
+    with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".lua") as tmp_file:
+        tmp_file.write(test_content)
+        test_file = tmp_file.name
+
+    chunks = list(chunker.chunk(test_file))
+    assert chunks == ['functionfoo()return "foo"end', 'functionbar()return "bar"end']
 
     os.remove(test_file)
 
