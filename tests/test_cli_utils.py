@@ -394,3 +394,28 @@ async def test_parse_cli_args_clean():
     with patch("sys.argv", ["vectorcode", "clean"]):
         config = await parse_cli_args()
         assert config.action == CliAction.clean
+
+
+@pytest.mark.asyncio
+async def test_config_import_from_hnsw():
+    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+        db_path = os.path.join(temp_dir, "test_db")
+        os.makedirs(db_path, exist_ok=True)
+        config_dict: Dict[str, Any] = {
+            "hnsw": {"space": "cosine", "ef_construction": 200, "m": 32}
+        }
+        config = await Config.import_from(config_dict)
+        assert config.hnsw["space"] == "cosine"
+        assert config.hnsw["ef_construction"] == 200
+        assert config.hnsw["m"] == 32
+
+
+@pytest.mark.asyncio
+async def test_hnsw_config_merge():
+    config1 = Config(host="host1", port=8001, hnsw={"space": "ip"})
+    config2 = Config(host="host2", port=None, hnsw={"ef_construction": 200})
+    merged_config = await config1.merge_from(config2)
+    assert merged_config.host == "host2"
+    assert merged_config.port == 8001
+    assert merged_config.hnsw["space"] == "ip"
+    assert merged_config.hnsw["ef_construction"] == 200

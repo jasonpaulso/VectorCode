@@ -162,7 +162,7 @@ async def get_collection(
     if __COLLECTION_CACHE.get(full_path) is None:
         collection_name = get_collection_name(full_path)
         embedding_function = get_embedding_function(configs)
-        collection_meta = {
+        collection_meta: dict[str, str | int] = {
             "path": full_path,
             "hostname": socket.gethostname(),
             "created-by": "VectorCode",
@@ -171,6 +171,12 @@ async def get_collection(
             ),
             "embedding_function": configs.embedding_function,
         }
+        if configs.hnsw:
+            for key in configs.hnsw.keys():
+                target_key = key
+                if not key.startswith("hnsw:"):
+                    target_key = f"hnsw:{key}"
+                collection_meta[target_key] = configs.hnsw[key]
 
         if not make_if_missing:
             __COLLECTION_CACHE[full_path] = await client.get_collection(

@@ -266,6 +266,56 @@ async def test_get_collection():
 
 
 @pytest.mark.asyncio
+async def test_get_collection_hnsw():
+    config = Config(
+        host="test_host",
+        port=1234,
+        db_path="test_db",
+        embedding_function="SentenceTransformerEmbeddingFunction",
+        embedding_params={},
+        project_root="/test_project",
+        hnsw={"ef_construction": 200, "m": 32},
+    )
+
+    with patch("chromadb.AsyncHttpClient") as MockAsyncHttpClient:
+        mock_client = MagicMock(spec=AsyncClientAPI)
+        mock_collection = MagicMock()
+        mock_collection.metadata = {
+            "hostname": socket.gethostname(),
+            "username": os.environ.get(
+                "USER", os.environ.get("USERNAME", "DEFAULT_USER")
+            ),
+            "created-by": "VectorCode",
+            "hnsw:ef_construction": 200,
+            "hnsw:m": 32,
+            "embedding_function": "SentenceTransformerEmbeddingFunction",
+            "path": "/test_project",
+        }
+        mock_client.get_or_create_collection.return_value = mock_collection
+        MockAsyncHttpClient.return_value = mock_client
+
+        # Clear the collection cache to force creation
+        from vectorcode.common import __COLLECTION_CACHE
+
+        __COLLECTION_CACHE.clear()
+
+        collection = await get_collection(mock_client, config, make_if_missing=True)
+
+        assert collection.metadata["hostname"] == socket.gethostname()
+        assert collection.metadata["username"] == os.environ.get(
+            "USER", os.environ.get("USERNAME", "DEFAULT_USER")
+        )
+        assert collection.metadata["created-by"] == "VectorCode"
+        assert collection.metadata["hnsw:ef_construction"] == 200
+        assert collection.metadata["hnsw:m"] == 32
+        mock_client.get_or_create_collection.assert_called_once()
+        assert (
+            mock_client.get_or_create_collection.call_args.kwargs["metadata"]
+            == mock_collection.metadata
+        )
+
+
+@pytest.mark.asyncio
 async def test_start_server():
     # Mock subprocess.Popen
     with (

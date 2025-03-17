@@ -74,6 +74,7 @@ class Config:
     include: list[QueryInclude] = field(
         default_factory=lambda: [QueryInclude.path, QueryInclude.document]
     )
+    hnsw: dict[str, str | int] = field(default_factory=dict)
 
     @classmethod
     async def import_from(cls, config_dict: dict[str, Any]) -> "Config":
@@ -104,6 +105,7 @@ class Config:
                 "reranker": config_dict.get("reranker", None),
                 "reranker_params": config_dict.get("reranker_params", {}),
                 "db_settings": config_dict.get("db_settings", None),
+                "hnsw": config_dict.get("hnsw", {}),
             }
         )
 
@@ -112,11 +114,20 @@ class Config:
         final_config = {}
         default_config = Config()
         for merged_field in fields(self):
-            final_config[merged_field.name] = getattr(other, merged_field.name)
-            if not final_config[merged_field.name] or final_config[
-                merged_field.name
-            ] == getattr(default_config, merged_field.name):
-                final_config[merged_field.name] = getattr(self, merged_field.name)
+            field_name = merged_field.name
+
+            other_val = getattr(other, field_name)
+            self_val = getattr(self, field_name)
+            if isinstance(other_val, dict) and isinstance(self_val, dict):
+                final_config[field_name] = {}
+                final_config[field_name].update(self_val)
+                final_config[field_name].update(other_val)
+            else:
+                final_config[field_name] = other_val
+                if not final_config[field_name] or final_config[field_name] == getattr(
+                    default_config, field_name
+                ):
+                    final_config[field_name] = self_val
         return Config(**final_config)
 
 

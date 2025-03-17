@@ -210,7 +210,19 @@ The JSON configuration file may hold the following values:
   passed to `CrossEncoder` class constructor;
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
   for Chromadb client settings so that you can configure 
-  [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth).
+  [authentication for remote Chromadb](https://docs.trychroma.com/production/administration/auth);
+- `hnsw`: a dictionary of 
+  [hnsw settings](https://cookbook.chromadb.dev/core/configuration/#hnsw-configuration) 
+  that may improve the query performances or avoid runtime errors during
+  queries. **It's recommended to re-vectorise the collection after modifying these
+  options, because some of the options can only be set during collection
+  creation.** Example:
+  ```json
+  "hnsw": {
+    "hnsw:M": 64,
+    "hnsw:construction_ef": 100
+  }
+  ```
 
 ### Vectorising Your Code
 
