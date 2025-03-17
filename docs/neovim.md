@@ -12,7 +12,7 @@
 <!-- mtoc-start -->
 
 * [Installation](#installation)
-* [Quick Start](#quick-start)
+* [Integrations](#integrations)
 * [User Command](#user-command)
   * [`VectorCode register`](#vectorcode-register)
   * [`VectorCode deregister`](#vectorcode-deregister)
@@ -31,7 +31,6 @@
     * [`cacher_backend.buf_is_enabled(bufnr?)`](#cacher_backendbuf_is_enabledbufnr)
     * [`cacher_backend.buf_job_count(bufnr?)`](#cacher_backendbuf_job_countbufnr)
     * [`cacher_backend.make_prompt_component(bufnr?, component_cb?)`](#cacher_backendmake_prompt_componentbufnr-component_cb)
-* [Integrations](#integrations)
 
 <!-- mtoc-end -->
 
@@ -73,72 +72,28 @@ you can use the following plugin spec:
 }
 ```
 
-## Quick Start
+## Integrations
 
-For VectorCode to work with a LLM plugin, you need to somehow integrate the
-query results into the prompt.
+[The wiki](https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations)
+contains instructions to integrate VectorCode with the following plugins:
 
-Here's how VectorCode may be used with 
-[minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim):
-```lua
-{
-  "milanglacier/minuet-ai.nvim",
-  config = function()
-    -- This uses the async cache to accelerate the prompt construction.
-    -- There's also the require('vectorcode').query API, which provides 
-    -- more up-to-date information, but at the cost of blocking the main UI.
-    local vectorcode_cacher = require("vectorcode.config").get_cacher_backend()
-    require("minuet").setup({
-      add_single_line_entry = true,
-      n_completions = 1,
-      -- I recommend you start with a small context window firstly, and gradually
-      -- increase it based on your local computing power.
-      context_window = 4096,
-      after_cursor_filter_length = 30,
-      notify = "debug",
-      provider = "openai_fim_compatible",
-      provider_options = {
-        openai_fim_compatible = {
-          api_key = "TERM",
-          name = "Ollama",
-          stream = true,
-          end_point = "http://127.0.0.1:11434/v1/completions",
-          model = "qwen2.5-coder:7b-base-q4_1",
-          template = {
-            prompt = function(pref, suff)
-              local prompt_message = ""
-              for _, file in ipairs(vectorcode_cacher.query_from_cache(0)) do
-                prompt_message = prompt_message .. "<|file_sep|>" .. file.path .. "\n" .. file.document
-              end
-              return prompt_message
-                .. "<|fim_prefix|>"
-                .. pref
-                .. "<|fim_suffix|>"
-                .. suff
-                .. "<|fim_middle|>"
-            end,
-            suffix = false,
-          },
-        },
-      },
-    })
-  end,
-}
+- [milanglacier/minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim);
+- [olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim);
+- [nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim);
+- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim).
+
+## User Command
+### `VectorCode register`
+
+Register the current buffer for async caching. It's possible to register the
+current buffer to a different vectorcode project by passing the `project_root`
+parameter:
 ```
-
-> [!NOTE]
-> It can be challenging to find the best way to incorporate the project-level
-> context into the prompt. The template above works well for [`Qwen2.5-Coder`](https://github.com/QwenLM/Qwen2.5-Coder),
-> but may not work as intended for your LLM. I compiled the prompt construction 
-> code snippets for some other LLMs
-[in the wiki](https://github.com/Davidyz/VectorCode/wiki/Prompt-Gallery).
-> Please check it out, because if your model was trained with project-level
-> context support, you'll have to modify the prompt structure accordingly to maximise
-> its potential.
-
-To use [async cache](#cached-asynchronous-api), you need to **register the buffer**.
-You may either manually register a buffer using the [user command](#vectorcode-register)
-`:VectorCode register`, or set up an autocommand:
+:VectorCode register project_root=path/to/another/project/
+```
+This is useful if you're working on a project that is closely related to a
+different project, for example a utility repository for a main library or a
+documentation repository. Alternatively, you can call the [lua API](#cached-asynchronous-api) in an autocmd:
 ```lua
 vim.api.nvim_create_autocmd("LspAttach", {
   callback = function()
@@ -155,23 +110,10 @@ vim.api.nvim_create_autocmd("LspAttach", {
   desc = "Register buffer for VectorCode",
 })
 ```
-to automatically register a new buffer. The autocommand is more convenient, but
-if you open a lot of buffers at the same time your system may be overloaded by
-the query commands. Using the user command allows you to choose what buffer to register. 
-Carefully choose how you register your buffers according to your system specs and setup.
-
-## User Command
-### `VectorCode register`
-
-Register the current buffer for async caching. It's possible to register the
-current buffer to a different vectorcode project by passing the `project_root`
-parameter:
-```
-:VectorCode register project_root=path/to/another/project/
-```
-This is useful if you're working on a project that is closely related to a
-different project, for example a utility repository for a main library or a
-documentation repository.
+The latter avoids the manual registrations, but registering too many buffers
+means there will be a lot of background processes/requests being sent to
+VectorCode. Choose these based on your workflow and the capability of your
+system.
 
 ### `VectorCode deregister`
 
@@ -223,7 +165,7 @@ The following are the available options for the parameter of this function:
 - `async_backend`: the async backend to use, currently either `"default"` or
   `"lsp"`. Default: `"default"`;
 - `on_setup`: some actions that can be registered to run when `setup` is called.
-  Currently only supports `update`, which calls `vectorcode update` CLI command
+  Currently, only supports `update`, which calls `vectorcode update` CLI command
   if [`vectorcode check config`](#checking-project-setup) prints a valid path.
 
 You may notice that a lot of options in `async_opts` are the same as the other
@@ -460,14 +402,3 @@ end
 - `count`: number of retrieved documents;
 - `content`: The retrieval results concatenated together into a string. Each
   result is formatted by `component_cb`.
-
-## Integrations
-
-[The wiki](https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations)
-contains instructions and config examples to integrate VectorCode with the
-following plugins:
-
-- [milanglacier/minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim);
-- [olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim);
-- [nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim);
-- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim).
