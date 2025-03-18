@@ -1,14 +1,21 @@
 .PHONY: multitest
 
+deps:
+	pdm lock --group dev --group lsp --group mcp; \
+	pdm install
+	
 test:
-	pdm lock --group dev; \
+	make deps; \
 	pdm run pytest --enable-coredumpy --coredumpy-dir dumps
 
 multitest:
 	@for i in {11..13}; do \
 		pdm use python3.$$i; \
-		pdm lock --group dev; \
-		pdm install; \
 		make test; \
 	done
 
+coverage:
+	make deps; \
+	pdm run coverage run -m pytest; \
+	pdm run coverage html; \
+	pdm run coverage report -m
