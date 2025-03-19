@@ -14,6 +14,9 @@ jobs:
       matrix:
         python-version: [3.11, 3.12, 3.13]
         os: [ubuntu-latest, macos-latest, macos-14]
+        exclude:
+          - os: macos-14
+            python-version: 3.13
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
@@ -33,24 +36,25 @@ jobs:
           pdm install
 
       - name: install pdm and dependencies for legacy system
-        if: ${{ (matrix.os == 'macos-14') && (matrix.python-version != '3.13') }}
+        # if: ${{ (matrix.os == 'macos-14') && (matrix.python-version != '3.13') }}
+        if: matrix.os == 'macos-14'
         run: |
           pdm lock --group dev --group lsp --group mcp --group legacy
           pdm install
 
       - name: run tests 
-        if: ${{ (matrix.os != 'macos-14') || (matrix.python-version != '3.13') }}
+        # if: ${{ (matrix.os != 'macos-14') || (matrix.python-version != '3.13') }}
         run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
 
       - name: run coverage
-        if: ${{ (matrix.os != 'macos-14') || (matrix.python-version != '3.13') }}
+        # if: ${{ (matrix.os != 'macos-14') || (matrix.python-version != '3.13') }}
         run: |
           pdm run coverage run -m pytest
           pdm run coverage report -m
           pdm run coverage xml -i
 
       - name: upload coverage reports to codecov
-        if: ${{ (matrix.os != 'macos-14') || (matrix.python-version != '3.13') }}
+        # if: ${{ (matrix.os != 'macos-14') || (matrix.python-version != '3.13') }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.codecov_token }}
