@@ -25,7 +25,7 @@ from vectorcode.common import (
 
 
 def test_get_collection_name():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         file_path = os.path.join(temp_dir, "test_file.txt")
         collection_name = get_collection_name(file_path)
         assert isinstance(collection_name, str)

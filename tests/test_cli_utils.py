@@ -23,7 +23,7 @@ from vectorcode.cli_utils import (
 
 @pytest.mark.asyncio
 async def test_config_import_from():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         db_path = os.path.join(temp_dir, "test_db")
         os.makedirs(db_path, exist_ok=True)
         config_dict: Dict[str, Any] = {
@@ -62,7 +62,7 @@ async def test_config_import_from_invalid_path():
 
 @pytest.mark.asyncio
 async def test_config_import_from_db_path_is_file():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         db_path = os.path.join(temp_dir, "test_db_file")
         with open(db_path, "w") as f:
             f.write("test")
@@ -134,7 +134,7 @@ def test_expand_envs_in_dict():
 
 @pytest.mark.asyncio
 async def test_expand_globs():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         file1_path = os.path.join(temp_dir, "file1.txt")
         dir1_path = os.path.join(temp_dir, "dir1")
         file2_path = os.path.join(dir1_path, "file2.txt")
@@ -192,7 +192,7 @@ def test_expand_path():
 
 @pytest.mark.asyncio
 async def test_load_config_file_invalid_json():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         config_path = os.path.join(temp_dir, "config.json")
         with open(config_path, "w") as f:
             f.write("invalid json")
@@ -203,7 +203,7 @@ async def test_load_config_file_invalid_json():
 
 @pytest.mark.asyncio
 async def test_find_project_config_dir_no_anchors():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         project_dir = await find_project_config_dir(temp_dir)
         assert project_dir is None
 
@@ -216,7 +216,7 @@ async def test_expand_globs_nonexistent_path():
 
 @pytest.mark.asyncio
 async def test_load_config_file_empty_file():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         config_path = os.path.join(temp_dir, "config.json")
         with open(config_path, "w") as f:
             f.write("")
@@ -227,7 +227,7 @@ async def test_load_config_file_empty_file():
 
 @pytest.mark.asyncio
 async def test_find_project_config_dir_nested():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         level1_dir = os.path.join(temp_dir, "level1")
         level2_dir = os.path.join(level1_dir, "level2")
         level3_dir = os.path.join(level2_dir, "level3")
@@ -256,7 +256,7 @@ async def test_find_project_config_dir_nested():
 
 @pytest.mark.asyncio
 async def test_expand_globs_mixed_paths():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         existing_file = os.path.join(temp_dir, "existing_file.txt")
         with open(existing_file, "w") as f:
             f.write("content")
@@ -398,7 +398,7 @@ async def test_parse_cli_args_clean():
 
 @pytest.mark.asyncio
 async def test_config_import_from_hnsw():
-    with tempfile.TemporaryDirectory(dir="/tmp") as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir:
         db_path = os.path.join(temp_dir, "test_db")
         os.makedirs(db_path, exist_ok=True)
         config_dict: Dict[str, Any] = {
