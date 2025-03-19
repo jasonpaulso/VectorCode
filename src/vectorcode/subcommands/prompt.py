@@ -9,7 +9,6 @@ prompt_strings = [
     "If a class, type or function has been imported from another file, this tool may be able to find its source. Add the name of the imported symbol to the query",
     "Avoid retrieving one single file because the retrieval mechanism may not be very accurate",
     "When providing answers based on VectorCode results, try to give references such as paths to files and line ranges, unless you're told otherwise (but do not include the full source code context)",
-    "Include one single command call for VectorCode each time. You may include multiple keywords in the command",
     "VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks",
     "If the retrieval results do not contain the needed context, increase the file count so that the result will more likely contain the desired files",
     "If the returned paths are relative, they are relative to the root of the project directory",
