@@ -40,7 +40,7 @@ distribution = true
 [tool.pdm.version]
 source = "scm"
 write_to = "./vectorcode/_version.py"
-write_template = "__version__ = '{}'"
+write_template = "__version__ = '{}' # pragma: no cover"
 
 [tool.coverage.run]
 omit = [
@@ -49,6 +49,7 @@ omit = [
     "src/vectorcode/__init__.py",
     "/tmp/*",
 ]
+include = ['src/vectorcode/**/*.py']
 
 [dependency-groups]
 dev = [
