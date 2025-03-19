@@ -1,0 +1,60 @@
+name: Test and Coverage
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
+        os: [ubuntu-latest, macos-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    env:
+      COREDUMPY_DUMP_DIR: ${{ github.workspace }}/coredumpy_data
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup pdm
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: install pdm and dependencies
+        if: matrix.os != 'macos-14'
+        run: |
+          pdm lock --group dev --group lsp --group mcp
+          pdm install
+
+      - name: install pdm and dependencies for legacy system
+        if: matrix.os == 'macos-14'
+        run: |
+          pdm lock --group dev --group lsp --group mcp --group legacy
+          pdm install
+
+      - name: run tests 
+        run: pdm run pytest --enable-coredumpy --coredumpy-dir ${{ env.COREDUMPY_DUMP_DIR }}
+
+      - name: run coverage
+        run: |
+          pdm run coverage run -m pytest
+          pdm run coverage report -m
+          pdm run coverage xml -i
+
+      - name: upload coverage reports to codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.codecov_token }}
+
+      - name: Upload coredumpy data if applicable
+        uses: gaogaotiantian/upload-coredumpy@v0.2
+        if: failure()
+        with:
+          name: coredumpy_data_${{ matrix.os }}_${{ matrix.python-version }}
+          path: ${{ env.COREDUMPY_DUMP_DIR }}
+          retention-days: 7
