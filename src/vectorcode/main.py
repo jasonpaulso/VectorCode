@@ -11,17 +11,6 @@ from vectorcode.cli_utils import (
     get_project_config,
     parse_cli_args,
 )
-from vectorcode.common import start_server, try_server
-from vectorcode.subcommands import (
-    check,
-    clean,
-    drop,
-    init,
-    ls,
-    query,
-    update,
-    vectorise,
-)
 
 
 async def async_main():
@@ -46,12 +35,22 @@ async def async_main():
 
     match cli_args.action:
         case CliAction.check:
+            from vectorcode.subcommands import check
+
             return await check(cli_args)
         case CliAction.init:
+            from vectorcode.subcommands import init
+
             return await init(cli_args)
         case CliAction.version:
             print(__version__)
             return 0
+        case CliAction.prompts:
+            from vectorcode.subcommands import prompts
+
+            return prompts(cli_args)
+
+    from vectorcode.common import start_server, try_server
 
     server_process = None
     if not await try_server(final_configs.host, final_configs.port):
@@ -70,16 +69,28 @@ async def async_main():
     try:
         match final_configs.action:
             case CliAction.query:
+                from vectorcode.subcommands import query
+
                 return_val = await query(final_configs)
             case CliAction.vectorise:
+                from vectorcode.subcommands import vectorise
+
                 return_val = await vectorise(final_configs)
             case CliAction.drop:
+                from vectorcode.subcommands import drop
+
                 return_val = await drop(final_configs)
             case CliAction.ls:
+                from vectorcode.subcommands import ls
+
                 return_val = await ls(final_configs)
             case CliAction.update:
+                from vectorcode.subcommands import update
+
                 return_val = await update(final_configs)
             case CliAction.clean:
+                from vectorcode.subcommands import clean
+
                 return_val = await clean(final_configs)
     except Exception as e:
         return_val = 1

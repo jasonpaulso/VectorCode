@@ -43,6 +43,7 @@ class CliAction(Enum):
     check = "check"
     update = "update"
     clean = "clean"
+    prompts = "prompts"
 
 
 @dataclass
@@ -271,6 +272,12 @@ def get_cli_parser():
         "clean",
         parents=[shared_parser],
         help="Remove empty collections in the database.",
+    )
+
+    subparsers.add_parser(
+        "prompts",
+        parents=[shared_parser],
+        help="Print a list of guidelines intended to be used as system prompts for an LLM.",
     )
     return main_parser
 

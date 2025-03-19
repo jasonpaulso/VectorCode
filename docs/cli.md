@@ -21,11 +21,13 @@
 * [Shell Completion](#shell-completion)
 * [Hardware Acceleration](#hardware-acceleration)
 * [For Developers](#for-developers)
-  * [`vectorcode query`](#vectorcode-query)
-  * [`vectorcode vectorise`](#vectorcode-vectorise)
-  * [`vectorcode ls`](#vectorcode-ls)
-* [LSP Mode](#lsp-mode)
-* [MCP Server](#mcp-server)
+  * [Working with Results](#working-with-results)
+    * [`vectorcode query`](#vectorcode-query)
+    * [`vectorcode vectorise`](#vectorcode-vectorise)
+    * [`vectorcode ls`](#vectorcode-ls)
+  * [LSP Mode](#lsp-mode)
+  * [MCP Server](#mcp-server)
+  * [Writing Prompts](#writing-prompts)
 
 <!-- mtoc-end -->
 
@@ -376,7 +378,9 @@ flag helpful. It formats the output into JSON and suppress other outputs so that
 you can grab whatever's in the `STDOUT` and parse it as a JSON document. In
 fact, this is exactly what I did when I wrote the neovim plugin.
 
-### `vectorcode query`
+### Working with Results
+
+#### `vectorcode query`
 For the query command, here's the format printed in the `pipe` mode:
 ```json 
 [
@@ -393,13 +397,13 @@ For the query command, here's the format printed in the `pipe` mode:
 Basically an array of dictionaries with 2 keys: `"path"` for the path to the
 document, and `"document"` for the content of the document.
 
-### `vectorcode vectorise`
+#### `vectorcode vectorise`
 The output is in JSON format. It contains a dictionary with the following fields:
 - `"add"`: number of added documents;
 - `"update"`: number of updated documents;
 - `"removed"`: number of removed documents;
 
-### `vectorcode ls`
+#### `vectorcode ls`
 A JSON array of collection information of the following format will be printed:
 ```json 
 {
@@ -421,7 +425,7 @@ A JSON array of collection information of the following format will be printed:
 - `"size"`: number of chunks stored in the database;
 - `"num_files"`: number of files that have been vectorised in the project.
 
-## LSP Mode
+### LSP Mode
 
 There's an experimental implementation of VectorCode CLI, which accepts requests
 of [`workspace/executeCommand`](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#workspace_executeCommand) 
@@ -434,7 +438,7 @@ group:
 ```bash
 pipx install vectorcode[lsp]
 
-# or if you have an existing `vectorcode` install:
+## or if you have an existing `vectorcode` install:
 
 pipx inject vectorcode vectorcode[lsp] --force
 ```
@@ -476,7 +480,7 @@ Note that:
    support for other subcommand but first I need to figure out how to properly
    manage `project_root` across different requests if they change.
 
-## MCP Server
+### MCP Server
 
 [Model Context Protocol (MCP)](https://modelcontextprotocol.io/introduction) is 
 an open protocol that standardizes how applications provide context to LLMs.
@@ -495,3 +499,10 @@ make sure:
    via `host` and `port`;
 2. you start the MCP server from a VectorCode project root (with the
    `.vectorcode` directory and some files already vectorised).
+
+### Writing Prompts
+
+If you want to integrate VectorCode in your LLM application, you may want to
+write some prompt that tells the LLM how to use this tool. Apart from the
+function signatures, a list of instructions used by the MCP server is included in
+this package. This can be retrieved by running the `vectorcode prompts` command.

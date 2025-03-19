@@ -26,9 +26,10 @@ from vectorcode.cli_utils import (
     load_config_file,
 )
 from vectorcode.common import get_client, get_collection, get_collections
+from vectorcode.subcommands.prompt import prompt_strings
 from vectorcode.subcommands.query import get_query_result_files
 
-mcp = FastMCP("VectorCode")
+mcp = FastMCP("VectorCode", instructions="\n".join(prompt_strings))
 
 
 default_config: Optional[Config] = None
@@ -56,8 +57,8 @@ async def mcp_server():
             default_collection = None
 
     @mcp.tool(
-        "list_collections",
-        description="List all projects indexed by VectorCode.",
+        "ls",
+        description="List all projects indexed by VectorCode. Call this before making queries.",
     )
     async def list_collections() -> list[str]:
         names: list[str] = []
