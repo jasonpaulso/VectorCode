@@ -243,15 +243,15 @@ async def test_find_project_config_dir_nested():
 
         # Test finding from level3_dir; should find .vectorcode in level2
         found_dir = await find_project_config_dir(level3_dir)
-        assert found_dir == vectorcode_dir
+        assert found_dir is not None and os.path.samefile(found_dir, vectorcode_dir)
 
         # Test finding from level2_dir; should find .vectorcode in level2
         found_dir = await find_project_config_dir(level2_dir)
-        assert found_dir == vectorcode_dir
+        assert found_dir is not None and os.path.samefile(found_dir, vectorcode_dir)
 
         # Test finding from level1_dir; should find .git in level1
         found_dir = await find_project_config_dir(level1_dir)
-        assert found_dir == git_dir
+        assert found_dir is not None and os.path.samefile(found_dir, git_dir)
 
 
 @pytest.mark.asyncio
@@ -291,12 +291,14 @@ def test_find_project_root():
 
         # Test when anchor file exists
         os.makedirs(os.path.join(temp_dir, ".vectorcode"))
-        assert find_project_root(temp_dir) == temp_dir
+        found_dir = find_project_root(temp_dir)
+        assert found_dir is not None and os.path.samefile(found_dir, temp_dir)
 
         # Test when start_from is a file
         test_file = os.path.join(temp_dir, "test_file.txt")
         open(test_file, "a").close()
-        assert find_project_root(test_file) == temp_dir
+        found_dir = find_project_root(test_file)
+        assert found_dir is not None and os.path.samefile(found_dir, temp_dir)
 
 
 @pytest.mark.asyncio
@@ -379,7 +381,7 @@ def test_find_project_root_file_input(tmp_path):
     project_root = find_project_root(temp_file)
 
     # Assert that it returns the parent directory (tmp_path)
-    assert str(project_root) == str(tmp_path)
+    assert os.path.samefile(str(project_root), str(tmp_path))
 
 
 @pytest.mark.asyncio
