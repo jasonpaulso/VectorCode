@@ -175,6 +175,47 @@ local make_tool = check_cli_wrap(function(opts)
       },
     },
     system_prompt = function(schema, xml2lua)
+      local guidelines = {
+        "  - Ensure XML is **valid and follows the schema**",
+        "  - Make sure the tools xml block is **surrounded by ```xml**",
+        "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags",
+        "  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running",
+        "  - Include one single command call for VectorCode each time. You may include multiple keywords in the command",
+        "  - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks",
+        "  - Use the `ls` command to retrieve a list of indexed project and pick one that may be relevant, unless the user explicitly mentioned 'this project' (or in other equivalent expressions)",
+        "  - **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `ls` command or from user input**",
+        capping_message,
+        ("  - If the user did not specify how many documents to retrieve, **start with %d documents**"):format(
+          opts.default_num
+        ),
+      }
+      local vectorcode_prompts = {} -- load default prompts from `vectorcode prompts`
+      vim
+        .system({ "vectorcode", "prompts", "-p" }, {}, function(out)
+          local successful = false
+          if out.code == 0 then
+            local ok, result =
+              pcall(vim.json.decode, out.stdout, { array = true, object = true })
+
+            if ok then
+              for _, str in pairs(result) do
+                table.insert(guidelines, string.format("  - %s", str))
+              end
+              successful = true
+            end
+          end
+          if not successful then
+            vim.schedule_wrap(vim.notify)(
+              "Failed to run `vectorcode prompts`. Please ensure your vectorcode CLI is up to date.\n"
+                .. tostring(out.stderr),
+              vim.log.levels.ERROR,
+              notify_opts
+            )
+          end
+        end)
+        :wait()
+      vim.list_extend(guidelines, vectorcode_prompts)
+
       return string.format(
         [[### VectorCode, a repository indexing and query tool.
 
@@ -183,28 +224,7 @@ local make_tool = check_cli_wrap(function(opts)
 2. **Usage**: Return an XML markdown code block that retrieves relevant documents corresponding to the generated query.
 
 3. **Key Points**:
-  - **Use at your discretion** when you feel you don't have enough information about the repository or project
-  - Ensure XML is **valid and follows the schema**
-  - **Don't escape** special characters
-  - Make sure the tools xml block is **surrounded by ```xml**
-  - separate phrases into distinct keywords when appropriate
-  - If a class, type or function has been imported from another file, this tool may be able to find its source. Add the name of the imported symbol to the query
-  - The embeddings are mostly generated from source code, so using keywords that may be present in source code may help with the retrieval
-  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags
-  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running
-  - Avoid retrieving one single file because the retrieval mechanism may not be very accurate
-  - When providing answers based on VectorCode results, try to give references such as paths to files and line ranges, unless you're told otherwise
-  - Include one single command call for VectorCode each time. You may include multiple keywords in the command
-  - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks
-  - If the retrieval results do not contain the needed context, increase the file count so that the result will more likely contain the desired files
-  - If the returned paths are relative, they are relative to the root of the project directory
-  - Do not suggest edits to retrieved files that are outside of the current working directory, unless the user instructed otherwise
-  - Use the `ls` command to retrieve a list of indexed project and pick one that may be relevant, unless the user explicitly mentioned "this project" (or in other equivalent expressions)
-  - If a query failed to retrieve desired results, a new attempt should use different keywords that are orthogonal to the previous ones but with similar meanings
-  - **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `ls` command or from user input**
-  - Do not use exact query keywords that you have used in a previous tool call in the conversation, unless the user instructed otherwise, or with different count/project_root
-  %s
-  %s
+%s 
 
 4. **Actions**:
 
@@ -230,10 +250,7 @@ d) **Get all indexed project**
 
 Remember:
 - Minimize explanations unless prompted. Focus on generating correct XML.]],
-        capping_message,
-        ("  - If the user did not specify how many documents to retrieve, **start with %d documents**"):format(
-          opts.default_num
-        ),
+        table.concat(guidelines, "\n"),
         xml2lua.toXml({ tools = { schema[1] } }),
         xml2lua.toXml({ tools = { schema[2] } }),
         xml2lua.toXml({ tools = { schema[3] } }),
