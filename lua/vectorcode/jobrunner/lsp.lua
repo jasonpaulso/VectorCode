@@ -93,7 +93,11 @@ function jobrunner.run_async(args, callback, bufnr)
     { command = "vectorcode", arguments = args },
     function(err, result, _, _)
       if type(callback) == "function" then
-        vim.schedule_wrap(callback)(result, err)
+        local err_message = {}
+        if err ~= nil and err.message ~= nil then
+          err_message = { err.message }
+        end
+        vim.schedule_wrap(callback)(result, err_message)
       end
     end,
     bufnr
