@@ -5,14 +5,16 @@ local Job = require("plenary.job")
 ---@type {integer: Job}
 local jobs = {}
 
-function runner.run_async(args, callback)
+function runner.run_async(args, callback, bufnr)
   if type(callback) == "function" then
     callback = vim.schedule_wrap(callback)
   else
     callback = nil
   end
   local cmd = { "vectorcode" }
+  args = require("vectorcode.jobrunner").find_root(args, bufnr)
   vim.list_extend(cmd, args)
+
   local job = Job:new({
     command = "vectorcode",
     args = args,

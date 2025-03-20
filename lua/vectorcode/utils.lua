@@ -94,4 +94,10 @@ function M.make_surrounding_lines_cb(num_of_lines)
   end
 end
 
+---@param path string|integer
+---@return string?
+function M.find_root(path)
+  return vim.fs.root(path, ".vectorcode") or vim.fs.root(path, ".git")
+end
+
 return M

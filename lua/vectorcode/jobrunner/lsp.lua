@@ -68,6 +68,7 @@ function jobrunner.run(args, timeout_ms, bufnr)
   if timeout_ms == nil or timeout_ms < 0 then
     timeout_ms = 2 ^ 31 - 1
   end
+  args = require("vectorcode.jobrunner").find_root(args, bufnr)
   local result, err = CLIENT.request_sync(
     vim.lsp.protocol.Methods.workspace_executeCommand,
     { command = "vectorcode", arguments = args },
@@ -88,6 +89,7 @@ function jobrunner.run_async(args, callback, bufnr)
   if not CLIENT.attached_buffers[bufnr] then
     vim.lsp.buf_attach_client(bufnr, CLIENT.id)
   end
+  args = require("vectorcode.jobrunner").find_root(args, bufnr)
   local _, id = CLIENT.request(
     vim.lsp.protocol.Methods.workspace_executeCommand,
     { command = "vectorcode", arguments = args },
