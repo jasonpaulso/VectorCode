@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       # This permission is needed for private repositories.
-      contents: read
+      contents: write
       # IMPORTANT: this permission is mandatory for trusted publishing
       id-token: write
     steps:
