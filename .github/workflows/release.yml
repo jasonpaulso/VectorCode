@@ -3,8 +3,6 @@ on:
     tags:
       - '[0-9]+.[0-9]+.[0-9]+'
 
-
-
 jobs:
   pypi-publish:
     name: upload release to PyPI
@@ -21,3 +19,20 @@ jobs:
 
       - name: Publish package distributions to PyPI
         run: pdm publish
+
+      - name: Generate Changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          mode: "COMMIT"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1.16.0
+        with:
+          draft: false
+          makeLatest: true
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "./dist/*"
