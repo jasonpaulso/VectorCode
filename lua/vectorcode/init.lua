@@ -23,6 +23,7 @@ M.query = vc_config.check_cli_wrap(
       return {}
     end
 
+    ---@type integer?
     local timeout_ms = opts.timeout_ms
     if timeout_ms < 1 then
       timeout_ms = nil
