@@ -18,6 +18,23 @@ Steps to reproduce the behavior:
 **Expected behavior**
 A clear and concise description of what you expected to happen.
 
+**VectorCode Configuration**
+Please attach your `<project_root>/.vectorcode/config.json` or 
+  `~/.config/vectorcode/config.json` here.
+```json
+
+```
+
+For issues with the Neovim plugin, please also attach your `setup` options:
+```lua
+
+```
+If it only occurs when you use VectorCode with a particular plugin, please
+attach the relevant config here:
+```lua
+
+```
+
 **Platform information:**
  - If the issue is about the CLI, attach the output of `pipx runpip vectorcode freeze`:
 ```
