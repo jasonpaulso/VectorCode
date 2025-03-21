@@ -212,5 +212,35 @@ function M.check(check_item, stdout_cb)
   return return_code == 0
 end
 
+---@return string[]
+M.prompts = vc_config.check_cli_wrap(function()
+  local vectorcode_prompts = {}
+  vim
+    .system({ "vectorcode", "prompts", "-p" }, {}, function(out)
+      local successful = false
+      if out.code == 0 then
+        local ok, result =
+          pcall(vim.json.decode, out.stdout, { array = true, object = true })
+
+        if ok then
+          for _, str in pairs(result) do
+            table.insert(vectorcode_prompts, str)
+          end
+          successful = true
+        end
+      end
+      if not successful then
+        vim.schedule_wrap(vim.notify)(
+          "Failed to run `vectorcode prompts`. Please ensure your vectorcode CLI is up to date.\n"
+            .. tostring(out.stderr),
+          vim.log.levels.ERROR,
+          notify_opts
+        )
+      end
+    end)
+    :wait()
+  return vectorcode_prompts
+end)
+
 M.setup = vc_config.setup
 return M

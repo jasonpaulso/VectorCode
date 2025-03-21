@@ -189,32 +189,12 @@ local make_tool = check_cli_wrap(function(opts)
           opts.default_num
         ),
       }
-      local vectorcode_prompts = {} -- load default prompts from `vectorcode prompts`
-      vim
-        .system({ "vectorcode", "prompts", "-p" }, {}, function(out)
-          local successful = false
-          if out.code == 0 then
-            local ok, result =
-              pcall(vim.json.decode, out.stdout, { array = true, object = true })
-
-            if ok then
-              for _, str in pairs(result) do
-                table.insert(guidelines, string.format("  - %s", str))
-              end
-              successful = true
-            end
-          end
-          if not successful then
-            vim.schedule_wrap(vim.notify)(
-              "Failed to run `vectorcode prompts`. Please ensure your vectorcode CLI is up to date.\n"
-                .. tostring(out.stderr),
-              vim.log.levels.ERROR,
-              notify_opts
-            )
-          end
-        end)
-        :wait()
-      vim.list_extend(guidelines, vectorcode_prompts)
+      vim.list_extend(
+        guidelines,
+        vim.tbl_map(function(line)
+          return "  - " .. line
+        end, require("vectorcode").prompts())
+      )
 
       return string.format(
         [[### VectorCode, a repository indexing and query tool.
