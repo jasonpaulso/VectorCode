@@ -34,7 +34,7 @@ async def make_caches(project_root: str):
     assert os.path.isabs(project_root)
     if cached_project_configs.get(project_root) is None:
         config_file = os.path.join(project_root, ".vectorcode", "config.json")
-        if os.path.isfile(config_file):
+        if not os.path.isfile(config_file):
             config_file = None
         cached_project_configs[project_root] = await load_config_file(config_file)
     config = cached_project_configs[project_root]
