@@ -144,7 +144,7 @@ Please try the following and see if any of these fix your issue:
 ## Advanced Usage
 ### Initialising a Project
 For each project, VectorCode creates a collection (similar to tables in
-traditional databases) and puts the code embeddings in the corresponsing
+traditional databases) and puts the code embeddings in the corresponding
 collection. In the root directory of a project, you may run `vectorcode init`.
 This will initialise the repository with a subdirectory
 `project_root/.vectorcode/`. This will mark this directory a _project root_, a
@@ -189,8 +189,7 @@ The JSON configuration file may hold the following values:
 - `chunk_size`: integer, the maximum number of characters per chunk. A larger
   value reduces the number of items in the database, and hence accelerates the
   search, but at the cost of potentially truncated data and lost information.
-  Default: `-1` (no chunking), but it's **highly** recommended to set it to a
-  positive integer that works for your model when working with large documents;
+  Default: `2500`. To disable chunking, set it to a negative number;
 - `overlap_ratio`: float between 0 and 1, the ratio of overlapping/shared content 
   between 2 adjacent chunks. A larger ratio improves the coherences of chunks,
   but at the cost of increasing number of entries in the database and hence
@@ -203,16 +202,18 @@ The JSON configuration file may hold the following values:
   works. If VectorCode fails to find an appropriate parser, it'll fallback to
   the legacy naive parser, in which case `overlap_ratio` works exactly in the
   same way as before;_
-- `query_multplier`: integer, when you use the `query` command to retrieve `n` documents,
-  VectorCode will check `n * query_multplier` chunks and return at most `n` 
-  documents. A larger value of `query_multplier`
+- `query_multiplier`: integer, when you use the `query` command to retrieve `n` documents,
+  VectorCode will check `n * query_multiplier` chunks and return at most `n` 
+  documents. A larger value of `query_multiplier`
   guarantees the return of `n` documents, but with the risk of including too
   many less-relevant chunks that may affect the document selection. Default: 
   `-1` (any negative value means selecting documents based on all indexed chunks);
 - `reranker`: string, a reranking model supported by 
   [`CrossEncoder`](https://sbert.net/docs/package_reference/cross_encoder/index.html). 
-  A list of available models is available on their documentation. The default is
-  not to use a reranker as it increases the time needed for each query;
+  A list of available models is available on their documentation. The default
+  model is `"cross-encoder/ms-marco-MiniLM-L-6-v2"`. You can disable the use of
+  `CrossEncoder` by setting this option to a falsy value that is not `null`,
+  such as `false` or `""` (empty string);
 - `reranker_params`: dictionary, similar to `embedding_params`. The options
   passed to `CrossEncoder` class constructor;
 - `db_settings`: dictionary, works in a similar way to `embedding_params`, but 
