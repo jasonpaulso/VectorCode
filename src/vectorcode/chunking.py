@@ -11,7 +11,7 @@ from tree_sitter import Node
 from tree_sitter_language_pack import get_parser
 
 
-class ChunkerBase:
+class ChunkerBase:  # pragma: nocover
     def __init__(self) -> None:
         pass
 
@@ -123,7 +123,7 @@ class TreeSitterChunker(ChunkerBase):
                 try:
                     parser = get_parser(name.lower())
                     break
-                except LookupError:
+                except LookupError:  # pragma: nocover
                     pass
 
         if parser is None:
