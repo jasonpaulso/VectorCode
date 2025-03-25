@@ -69,16 +69,19 @@ function jobrunner.run(args, timeout_ms, bufnr)
     timeout_ms = 2 ^ 31 - 1
   end
   args = require("vectorcode.jobrunner").find_root(args, bufnr)
-  local result, err = CLIENT.request_sync(
-    vim.lsp.protocol.Methods.workspace_executeCommand,
-    { command = "vectorcode", arguments = args },
-    timeout_ms,
-    bufnr
-  )
+
+  local result, err
+  jobrunner.run_async(args, function(res, err)
+    result = res
+    err = err
+  end, bufnr)
+  vim.wait(timeout_ms, function()
+    return (result ~= nil) or (err ~= nil)
+  end)
   if result == nil then
-    return {}, { err }
+    return {}, err
   end
-  return result.result, result.err
+  return result, err
 end
 
 function jobrunner.run_async(args, callback, bufnr)
@@ -87,7 +90,20 @@ function jobrunner.run_async(args, callback, bufnr)
   assert(bufnr ~= nil)
 
   if not CLIENT.attached_buffers[bufnr] then
-    vim.lsp.buf_attach_client(bufnr, CLIENT.id)
+    if vim.lsp.buf_attach_client(bufnr, CLIENT.id) then
+      local uri = vim.uri_from_bufnr(bufnr)
+      local text = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
+      vim.schedule_wrap(CLIENT.notify)(vim.lsp.protocol.Methods.textDocument_didOpen, {
+        textDocument = {
+          uri = uri,
+          text = text,
+          version = 1,
+          languageId = vim.bo[bufnr].filetype,
+        },
+      })
+    else
+      vim.notify("Failed to attach lsp client")
+    end
   end
   args = require("vectorcode.jobrunner").find_root(args, bufnr)
   local _, id = CLIENT.request(

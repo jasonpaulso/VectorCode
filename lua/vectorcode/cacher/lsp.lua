@@ -230,25 +230,6 @@ M.register_buffer = vc_config.check_cli_wrap(
       return false
     end
     assert(client_id ~= nil)
-    if not vim.lsp.buf_is_attached(bufnr, client_id) then
-      if vim.lsp.buf_attach_client(bufnr, client_id) then
-        local uri = vim.uri_from_bufnr(bufnr)
-        local text = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
-        vim.schedule_wrap(vim.lsp.get_client_by_id(client_id).notify)(
-          vim.lsp.protocol.Methods.textDocument_didOpen,
-          {
-            textDocument = {
-              uri = uri,
-              text = text,
-              version = 1,
-              languageId = vim.bo[bufnr].filetype,
-            },
-          }
-        )
-      else
-        vim.notify("Failed to attach lsp client")
-      end
-    end
 
     if CACHE[bufnr] ~= nil then
       -- update the options and/or query_cb
