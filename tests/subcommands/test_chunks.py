@@ -16,7 +16,8 @@ async def test_chunks():
     mock_config.files = ["file1.py", "file2.py"]
 
     # Mock the TreeSitterChunker
-    mock_chunker = MagicMock(spec=TreeSitterChunker)
+    mock_chunker = TreeSitterChunker(mock_config)
+    mock_chunker.chunk = MagicMock()
     mock_chunker.chunk.side_effect = [
         ["chunk1_file1", "chunk2_file1"],
         ["chunk1_file2", "chunk2_file2"],
@@ -29,5 +30,6 @@ async def test_chunks():
 
         # Assertions
         assert result == 0
+        assert mock_chunker.config == mock_config
         mock_chunker.chunk.assert_called()
         assert mock_chunker.chunk.call_count == 2
