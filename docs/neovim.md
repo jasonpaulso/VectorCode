@@ -144,6 +144,7 @@ require("vectorcode").setup({
   timeout_ms = 5000,
   on_setup = {
     update = false, -- set to true to enable update when `setup` is called.
+    lsp = false,
   }
 })
 ```
@@ -165,8 +166,12 @@ The following are the available options for the parameter of this function:
 - `async_backend`: the async backend to use, currently either `"default"` or
   `"lsp"`. Default: `"default"`;
 - `on_setup`: some actions that can be registered to run when `setup` is called.
-  Currently, only supports `update`, which calls `vectorcode update` CLI command
-  if [`vectorcode check config`](#checking-project-setup) prints a valid path.
+  Supported keys:
+  - `update`: if `true`, the plugin will run `vectorcode update` on startup to
+    update the embeddings;
+  - `lsp`: if `true`, the plugin will try to start the LSP server on startup so
+    that you won't need to wait for the server loading when making your first 
+    request.
 
 You may notice that a lot of options in `async_opts` are the same as the other
 options in the top-level of the main option table. This is because the top-level

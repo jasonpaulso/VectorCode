@@ -21,6 +21,7 @@
 
 ---@class VectorCode.OnSetup Some actions that may be configured to run when `setup` is called.
 ---@field update boolean `vectorcode update`
+---@field lsp boolean whether to start LSP server on startup (default is to delay it to the first LSP request)
 
 ---Options passed to `setup`.
 ---@class VectorCode.Opts : VectorCode.QueryOpts

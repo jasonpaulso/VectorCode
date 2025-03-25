@@ -15,7 +15,7 @@ local config = {
   n_query = 1,
   notify = true,
   timeout_ms = 5000,
-  on_setup = { update = false },
+  on_setup = { update = false, lsp = false },
 }
 
 local setup_config = vim.deepcopy(config, true)
@@ -40,6 +40,29 @@ local check_cli_wrap = function(func)
   end
   return func
 end
+
+--- Handles startup actions.
+---@param configs VectorCode.Opts
+local startup_handler = check_cli_wrap(function(configs)
+  if configs.on_setup.update then
+    require("vectorcode").check("config", function(out)
+      if out.code == 0 then
+        local path = string.gsub(out.stdout, "^%s*(.-)%s*$", "%1")
+        if path ~= "" then
+          require("vectorcode").update(path)
+        end
+      end
+    end)
+  end
+  if configs.on_setup.lsp then
+    local lsp_module = require("vectorcode.jobrunner.lsp")
+    if type(lsp_module) == "table" then
+      -- this will trigger the private `get_client` function in the runner and hence start the LSP
+      lsp_module.is_job_running(0)
+    end
+  end
+end)
+
 return {
   get_default_config = function()
     return vim.deepcopy(config, true)
@@ -64,16 +87,7 @@ return {
           )
         end
       end
-      if setup_config.on_setup.update then
-        require("vectorcode").check("config", function(out)
-          if out.code == 0 then
-            local path = string.gsub(out.stdout, "^%s*(.-)%s*$", "%1")
-            if path ~= "" then
-              require("vectorcode").update(path)
-            end
-          end
-        end)
-      end
+      startup_handler(setup_config)
     end
   ),
 
