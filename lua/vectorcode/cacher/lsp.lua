@@ -35,7 +35,7 @@ end
 
 ---@return boolean
 local function is_lsp_running()
-  local clients = vim.lsp.get_clients({ name = "vectorcode-server" })
+  local clients = vim.lsp.get_clients({ name = "vectorcode_server" })
   if #clients == 0 then
     return false
   end
@@ -76,7 +76,7 @@ local function start_server(project_root, ok_to_fail)
     end
   end
   local id, err = vim.lsp.start_client({
-    name = "vectorcode-server",
+    name = "vectorcode_server",
     cmd = cmd,
   })
 
