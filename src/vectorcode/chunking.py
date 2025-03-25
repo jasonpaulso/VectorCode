@@ -1,4 +1,5 @@
 import os
+import re
 from abc import abstractmethod
 from functools import cache
 from io import TextIOWrapper
@@ -10,10 +11,17 @@ from pygments.util import ClassNotFound
 from tree_sitter import Node
 from tree_sitter_language_pack import get_parser
 
+from vectorcode.cli_utils import Config
 
-class ChunkerBase:  # pragma: nocover
-    def __init__(self) -> None:
-        pass
+
+class ChunkerBase:
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config is None:
+            config = Config()
+        assert 0 <= config.overlap_ratio < 1, (
+            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
+        )
+        self.config = config
 
     @abstractmethod
     def chunk(self, data) -> Generator[str, None, None]:
@@ -21,45 +29,43 @@ class ChunkerBase:  # pragma: nocover
 
 
 class StringChunker(ChunkerBase):
-    def __init__(self, chunk_size: int = -1, overlap_ratio: float = 0.2) -> None:
-        super().__init__()
-        self.__chunk_size = chunk_size
-        assert 0 <= overlap_ratio < 1, (
-            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
-        )
-        self.__overlap_ratio = overlap_ratio
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config is None:
+            config = Config()
+        super().__init__(config)
 
     def chunk(self, data: str) -> Generator[str, None, None]:
-        if self.__chunk_size < 0:
+        if self.config.chunk_size < 0:
             yield data
         else:
-            step_size = max(1, int(self.__chunk_size * (1 - self.__overlap_ratio)))
+            step_size = max(
+                1, int(self.config.chunk_size * (1 - self.config.overlap_ratio))
+            )
             i = 0
             while i < len(data):
-                yield data[i : i + self.__chunk_size]
-                if i + self.__chunk_size >= len(data):
+                yield data[i : i + self.config.chunk_size]
+                if i + self.config.chunk_size >= len(data):
                     break
                 i += step_size
 
 
 class FileChunker(ChunkerBase):
-    def __init__(self, chunk_size: int = -1, overlap_ratio: float = 0.2) -> None:
-        super().__init__()
-        self.__chunk_size = chunk_size
-        assert 0 <= overlap_ratio < 1, (
-            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
-        )
-        self.__overlap_ratio = overlap_ratio
+    def __init__(self, config: Optional[Config] = None) -> None:
+        if config is None:
+            config = Config()
+        super().__init__(config)
 
     def chunk(self, data: TextIOWrapper) -> Generator[str, None, None]:
-        if self.__chunk_size < 0:
+        if self.config.chunk_size < 0:
             yield "".join(data.readlines())
         else:
-            step_size = max(1, int(self.__chunk_size * (1 - self.__overlap_ratio)))
+            step_size = max(
+                1, int(self.config.chunk_size * (1 - self.config.overlap_ratio))
+            )
             # the output of this method should be identical to that of StringChunker.chunk
-            output = data.read(self.__chunk_size)
+            output = data.read(self.config.chunk_size)
             yield output
-            if len(output) < self.__chunk_size:
+            if len(output) < self.config.chunk_size:
                 return
             while True:
                 new_chars = data.read(step_size)
@@ -70,25 +76,21 @@ class FileChunker(ChunkerBase):
 
 
 class TreeSitterChunker(ChunkerBase):
-    def __init__(self, chunk_size: int = -1, overlap_ratio: float = 0.2):
-        super().__init__()
-        assert isinstance(chunk_size, int), "chunk_size parameter must be an integer"
-        assert 0 <= overlap_ratio < 1, (
-            "Overlap ratio has to be a float between 0 (inclusive) and 1 (exclusive)."
-        )
-        self.__chunk_size = chunk_size
-        self.__overlap_ratio = overlap_ratio
+    def __init__(self, config: Optional[Config] = None):
+        if config is None:
+            config = Config()
+        super().__init__(config)
 
     def __chunk_node(self, node: Node, text: str) -> Generator[str, None, None]:
         current_chunk = ""
         for child in node.children:
             child_length = child.end_byte - child.start_byte
-            if child_length > self.__chunk_size:
+            if child_length > self.config.chunk_size:
                 if current_chunk:
                     yield current_chunk
                     current_chunk = ""
                 yield from self.__chunk_node(child, text)
-            elif len(current_chunk) + child_length > self.__chunk_size:
+            elif len(current_chunk) + child_length > self.config.chunk_size:
                 yield current_chunk
                 current_chunk = text[child.start_byte : child.end_byte]
             else:
@@ -104,6 +106,19 @@ class TreeSitterChunker(ChunkerBase):
         except ClassNotFound:
             return None
 
+    @cache
+    def __build_pattern(self, language: str):
+        patterns = []
+        lang_specific_pat = self.config.chunk_filters.get(language)
+        if lang_specific_pat:
+            patterns.extend(lang_specific_pat)
+        else:
+            patterns.extend(self.config.chunk_filters.get("*", []))
+        if len(patterns):
+            patterns = [f"(?:{i})" for i in patterns]
+            return f"(?:{'|'.join(patterns)})"
+        return ""
+
     def chunk(self, data: str) -> Generator[str, None, None]:
         """
         data: path to the file
@@ -111,10 +126,11 @@ class TreeSitterChunker(ChunkerBase):
         assert os.path.isfile(data)
         with open(data) as fin:
             content = fin.read()
-        if self.__chunk_size < 0:
+        if self.config.chunk_size < 0:
             yield content
             return
         parser = None
+        language = None
         lexer = self.__guess_type(data, content)
         if lexer is not None:
             lang_names = [lexer.name]
@@ -122,16 +138,24 @@ class TreeSitterChunker(ChunkerBase):
             for name in lang_names:
                 try:
                     parser = get_parser(name.lower())
-                    break
+                    if parser is not None:
+                        language = name.lower()
+                        break
                 except LookupError:  # pragma: nocover
                     pass
 
         if parser is None:
             # fall back to naive chunking
-            yield from StringChunker(self.__chunk_size, self.__overlap_ratio).chunk(
-                content
-            )
+            yield from StringChunker(self.config).chunk(content)
         else:
+            pattern_str = self.__build_pattern(language=language)
             content_bytes = content.encode()
             tree = parser.parse(content_bytes)
-            yield from self.__chunk_node(tree.root_node, content)
+            chunks_gen = self.__chunk_node(tree.root_node, content)
+            if pattern_str:
+                re_pattern = re.compile(pattern_str)
+                for chunk in chunks_gen:
+                    if re_pattern.match(chunk) is None:
+                        yield chunk
+            else:
+                yield from chunks_gen
