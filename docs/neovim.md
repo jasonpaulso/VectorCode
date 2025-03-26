@@ -72,6 +72,11 @@ you can use the following plugin spec:
 }
 ```
 
+> This plugin is developed and tested (sort of) under the latest stable release
+> (specifically the package provided in the 
+> [Extra](https://archlinux.org/packages/extra/x86_64/neovim/) 
+> repository of Arch Linux).
+
 ## Integrations
 
 [The wiki](https://github.com/Davidyz/VectorCode/wiki/Neovim-Integrations)

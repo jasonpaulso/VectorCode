@@ -1,4 +1,4 @@
-*VectorCode.txt*                For                 Last change: 2025 March 25
+*VectorCode.txt*                For                 Last change: 2025 March 26
 
 ==============================================================================
 Table of Contents                               *VectorCode-table-of-contents*
@@ -81,6 +81,11 @@ you can use the following plugin spec:
     }
 <
 
+
+  This plugin is developed and tested (sort of) under the latest stable release
+  (specifically the package provided in the Extra
+  <https://archlinux.org/packages/extra/x86_64/neovim/> repository of Arch
+  Linux).
 
 INTEGRATIONS                           *VectorCode-neovim-plugin-integrations*
 
