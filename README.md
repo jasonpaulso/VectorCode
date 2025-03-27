@@ -58,6 +58,10 @@ and chat plugin available on VSCode and JetBrain products.
 - For neovim users, after you've gone through the CLI documentation, please refer to 
   [the neovim plugin documentation](./docs/neovim.md) for further instructions.
 
+If you're trying to contribute to this project, take a look at [the contribution
+guide](./docs/CONTRIBUTING.md), which contains information about some basic
+guidelines that you should follow and tips that you may find helpful.
+
 ## TODOs
 - [x] query by ~file path~ excluded paths;
 - [x] chunking support;
@@ -78,7 +82,7 @@ and chat plugin available on VSCode and JetBrain products.
   **Implemented project-level `.vectorcode/` and `.git` as root anchor**
 - [ ] ability to view and delete files in a collection (atm you can only `drop`
   and `vectorise` again);
-- [x] joint search (kinda, using codecompanion.nvim).
+- [x] joint search (kinda, using codecompanion.nvim/MCP).
 
 ## Credit
 
