@@ -104,9 +104,7 @@ async def query_tool(
 
 async def mcp_server():
     global default_config, default_client, default_collection
-    # sys.stderr = open(os.devnull, "w")
     local_config_dir = await find_project_config_dir(".")
-    print(local_config_dir, file=sys.stderr)
 
     if local_config_dir is not None:
         project_root = str(Path(local_config_dir).parent.resolve())
@@ -130,7 +128,11 @@ async def mcp_server():
     mcp.add_tool(
         fn=query_tool,
         name="query",
-        description="Use VectorCode to perform vector similarity search on repositories and return a list of relevant file paths and contents. Make sure `project_root` is one of the values from the `list_collections` tool.",
+        description="""
+Use VectorCode to perform vector similarity search on repositories and return a list of relevant file paths and contents. 
+Make sure `project_root` is one of the values from the `ls` tool. 
+The result contains the relative paths for the files and their corresponding contents.
+""",
     )
 
     return mcp
