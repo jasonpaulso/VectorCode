@@ -1,4 +1,4 @@
-*VectorCode.txt*                For                 Last change: 2025 March 26
+*VectorCode.txt*                For                 Last change: 2025 March 27
 
 ==============================================================================
 Table of Contents                               *VectorCode-table-of-contents*
@@ -95,7 +95,8 @@ contains instructions to integrate VectorCode with the following plugins:
 - milanglacier/minuet-ai.nvim <https://github.com/milanglacier/minuet-ai.nvim>;
 - olimorris/codecompanion.nvim <https://github.com/olimorris/codecompanion.nvim>;
 - nvim-lualine/lualine.nvim <https://github.com/nvim-lualine/lualine.nvim>;
-- CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim>.
+- CopilotC-Nvim/CopilotChat.nvim <https://github.com/CopilotC-Nvim/CopilotChat.nvim>;
+- ravitemer/mcphub.nvim <https://github.com/ravitemer/mcphub.nvim>.
 
 
 USER COMMAND                           *VectorCode-neovim-plugin-user-command*

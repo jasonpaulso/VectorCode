@@ -85,7 +85,8 @@ contains instructions to integrate VectorCode with the following plugins:
 - [milanglacier/minuet-ai.nvim](https://github.com/milanglacier/minuet-ai.nvim);
 - [olimorris/codecompanion.nvim](https://github.com/olimorris/codecompanion.nvim);
 - [nvim-lualine/lualine.nvim](https://github.com/nvim-lualine/lualine.nvim);
-- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim).
+- [CopilotC-Nvim/CopilotChat.nvim](https://github.com/CopilotC-Nvim/CopilotChat.nvim);
+- [ravitemer/mcphub.nvim](https://github.com/ravitemer/mcphub.nvim).
 
 ## User Command
 ### `VectorCode register`
