@@ -35,66 +35,8 @@ end
 
 ---@return boolean
 local function is_lsp_running()
-  local clients = vim.lsp.get_clients({ name = "vectorcode_server" })
-  if #clients == 0 then
-    return false
-  end
-  client_id = clients[1].id
-  return true
-end
-
----@param project_root string?
----@param ok_to_fail boolean?
----@return boolean
-local function start_server(project_root, ok_to_fail)
-  if is_lsp_running() then
-    return true
-  end
-
-  if ok_to_fail == nil then
-    ok_to_fail = true
-  end
-  local cmd = { "vectorcode-server" }
-  if
-    type(project_root) == "string"
-    and vim.list_contains({ "directory" }, vim.uv.fs_stat(project_root).type)
-  then
-    vim.list_extend(cmd, { "--project_root", project_root })
-  else
-    local try_root = vim.fs.root(".", ".vectorcode") or vim.fs.root(".", ".git")
-    if try_root ~= nil then
-      vim.list_extend(cmd, { "--project_root", try_root })
-    else
-      vim.schedule(function()
-        vim.notify(
-          "Failed to start vectorcode-server due to failing to resolve the project root.",
-          vim.log.levels.ERROR,
-          notify_opts
-        )
-      end)
-      return false
-    end
-  end
-  local id, err = vim.lsp.start_client({
-    name = "vectorcode_server",
-    cmd = cmd,
-  })
-
-  if err ~= nil and (vc_config.get_user_config().notify or not ok_to_fail) then
-    vim.schedule(function()
-      vim.notify(
-        ("Failed to start vectorcode-server due to the following error:\n%s"):format(
-          err
-        ),
-        vim.log.levels.ERROR,
-        notify_opts
-      )
-    end)
-    return false
-  else
-    client_id = id
-    return true
-  end
+  client_id = job_runner.init()
+  return client_id ~= nil
 end
 
 ---@type table<integer, VectorCode.Cache>
@@ -223,13 +165,7 @@ M.register_buffer = vc_config.check_cli_wrap(
     opts =
       vim.tbl_deep_extend("force", vc_config.get_user_config().async_opts, opts or {})
 
-    if
-      not start_server(opts.project_root or vim.api.nvim_buf_get_name(bufnr), false)
-    then
-      -- failed to start the server
-      return false
-    end
-    assert(client_id ~= nil)
+    assert(is_lsp_running())
 
     if CACHE[bufnr] ~= nil then
       -- update the options and/or query_cb

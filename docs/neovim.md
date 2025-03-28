@@ -293,7 +293,13 @@ interface:
 1. The `default` backend which works exactly like the original implementation
    used in previous versions;
 2. The `lsp` based backend, which make use of the experimental `vectorcode-server`
-   implemented in version 0.4.0.
+   implemented in version 0.4.0. If you want to customise the LSP executable or
+   any options supported by `vim.lsp.ClientConfig`, you can do so by using
+   `vim.lsp.config()` or 
+   [nvim-lspconfig](https://github.com/neovim/nvim-lspconfig). The LSP will
+   attempt to read configurations from these 2 sources before it starts. (If
+   `vim.lsp.config.vectorcode_server` is not `nil`, this will be used and
+   nvim-lspconfig will be ignored.)
 
 
 | Features | `default`                                                                                                 | `lsp`                                                                                                                     |

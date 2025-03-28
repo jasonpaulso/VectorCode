@@ -18,6 +18,23 @@ local config = {
   on_setup = { update = false, lsp = false },
 }
 
+---@return vim.lsp.ClientConfig
+local lsp_configs = function()
+  local cfg =
+    { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
+  if vim.lsp.config ~= nil and vim.lsp.config.vectorcode_server ~= nil then
+    -- nvim >= 0.11.0
+    cfg = vim.tbl_deep_extend("force", cfg, vim.lsp.config.vectorcode_server)
+  else
+    -- nvim < 0.11.0
+    local ok, lspconfig = pcall(require, "lspconfig.configs")
+    if ok and lspconfig.vectorcode_server ~= nil then
+      cfg = lspconfig.vectorcode_server.config_def.default_config
+    end
+  end
+  return cfg
+end
+
 local setup_config = vim.deepcopy(config, true)
 local notify_opts = { title = "VectorCode" }
 
@@ -55,11 +72,12 @@ local startup_handler = check_cli_wrap(function(configs)
     end)
   end
   if configs.on_setup.lsp then
-    local lsp_module = require("vectorcode.jobrunner.lsp")
-    if type(lsp_module) == "table" then
-      -- this will trigger the private `get_client` function in the runner and hence start the LSP
-      lsp_module.is_job_running(0)
+    local ok, runner = pcall(require, "vectorcode.jobrunner.lsp")
+    if not ok or not type(runner) == "table" or runner == nil then
+      vim.notify("Failed to start vectorcode-server.", vim.log.levels.WARN, notify_opts)
+      return
     end
+    runner.init()
   end
 end)
 
@@ -135,4 +153,6 @@ return {
   has_cli = has_cli,
 
   check_cli_wrap = check_cli_wrap,
+
+  lsp_configs = lsp_configs,
 }
