@@ -107,26 +107,28 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                 ),
             )
             final_results = []
-            for path in await get_query_result_files(
-                collection=collection,
-                configs=final_configs,
-            ):
-                if os.path.isfile(path):
-                    with open(path) as fin:
-                        output_path = path
-                        if not final_configs.use_absolute_path:
-                            output_path = os.path.relpath(
-                                path, final_configs.project_root
+            try:
+                for path in await get_query_result_files(
+                    collection=collection,
+                    configs=final_configs,
+                ):
+                    if os.path.isfile(path):
+                        with open(path) as fin:
+                            output_path = path
+                            if not final_configs.use_absolute_path:
+                                output_path = os.path.relpath(
+                                    path, final_configs.project_root
+                                )
+                            final_results.append(
+                                {"path": output_path, "document": fin.read()}
                             )
-                        final_results.append(
-                            {"path": output_path, "document": fin.read()}
-                        )
-            ls.progress.end(
-                progress_token,
-                types.WorkDoneProgressEnd(
-                    message=f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
-                ),
-            )
+            finally:
+                ls.progress.end(
+                    progress_token,
+                    types.WorkDoneProgressEnd(
+                        message=f"Retrieved {len(final_results)} result{'s' if len(final_results) > 1 else ''} in {round(time.time() - start_time, 2)}s."
+                    ),
+                )
             return final_results
         case CliAction.ls:
             ls.progress.begin(
@@ -136,12 +138,14 @@ async def execute_command(ls: LanguageServer, args: list[str]):
                     message="Looking for other projects indexed by VectorCode",
                 ),
             )
-            projects: list[dict] = await get_collection_list(client)
-
-            ls.progress.end(
-                progress_token,
-                types.WorkDoneProgressEnd(message="List retrieved."),
-            )
+            projects: list[dict] = []
+            try:
+                projects.extend(await get_collection_list(client))
+            finally:
+                ls.progress.end(
+                    progress_token,
+                    types.WorkDoneProgressEnd(message="List retrieved."),
+                )
             return projects
 
 
