@@ -31,6 +31,7 @@
     * [`cacher_backend.buf_is_enabled(bufnr?)`](#cacher_backendbuf_is_enabledbufnr)
     * [`cacher_backend.buf_job_count(bufnr?)`](#cacher_backendbuf_job_countbufnr)
     * [`cacher_backend.make_prompt_component(bufnr?, component_cb?)`](#cacher_backendmake_prompt_componentbufnr-component_cb)
+    * [Built-in Query Callbacks](#built-in-query-callbacks)
 
 <!-- mtoc-end -->
 
@@ -341,7 +342,9 @@ The following are the available options for this function:
   - `n_query`: number of retrieved documents. Default: `1`;
   - `debounce`: debounce time in milliseconds. Default: `10`;
   - `notify`: whether to show notifications when a query is completed. Default: `false`;
-  - `query_cb`: a callback function that accepts the buffer ID and returns the query message(s). Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`;
+  - `query_cb`: a callback function that accepts the buffer ID and returns the query message(s). 
+    Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See 
+    [this section](#built-in-query-callbacks) for a list of built-in query callbacks;
   - `events`: list of autocommand events that triggers the query. Default: `{"BufWritePost", "InsertEnter", "BufReadPost"}`;
   - `run_on_register`: whether to run the query when the buffer is registered.
     Default: `false`;
@@ -419,3 +422,23 @@ end
 - `count`: number of retrieved documents;
 - `content`: The retrieval results concatenated together into a string. Each
   result is formatted by `component_cb`.
+
+#### Built-in Query Callbacks
+
+When using async cache, the query message is constructed by a function that
+takes the buffer ID as the only parameter, and return a string or a list of
+strings. The `vectorcode.utils` module provides the following callback
+constructor for you to play around with it, but you can easily build your own!
+
+- `require("vectorcode.utils").make_surrounding_lines_cb(line_count)`: returns a
+  callback that uses `line_count` lines around the cursor as the query. When
+  `line_count` is negative, it uses the full buffer;
+- `require("vectorcode.utils").make_lsp_document_symbol_cb()`: returns a
+  callback which uses the `textDocument/documentSymbol` method to retrieve a
+  list of symbols in the current document. This will fallback to
+  `make_surrounding_lines_cb(-1)` when there's no LSP that supports the
+  `documentSymbol` method;
+- `require("vectorcode.utils").make_changes_cb(max_num)`: returns a callback
+  that fetches `max_num` unique items from the `:changes` list. This will also
+  fallback to `make_surrounding_lines_cb(-1)`. The default value for `max_num`
+  is 50.

@@ -100,4 +100,57 @@ function M.find_root(path)
   return vim.fs.root(path, ".vectorcode") or vim.fs.root(path, ".git")
 end
 
+---@param str string
+---@param sep string?
+---@return string[]
+local function split(str, sep)
+  if sep == nil then
+    sep = " "
+  end
+  local result = {}
+  local pattern = "([^" .. sep .. "]+)"
+  for part in string.gmatch(str, pattern) do
+    table.insert(result, part)
+  end
+  return result
+end
+
+--- This function build a `VectorCode.QueryCallback` by extracting recent changes from the `:changes` command.
+---@param max_num integer? Default is 50
+---@return VectorCode.QueryCallback
+function M.make_changes_cb(max_num)
+  if max_num == nil then
+    max_num = 50
+  end
+  return function(bufnr)
+    ---@type string?
+    local raw_changes = vim.api.nvim_exec2("changes", { output = true }).output
+    if raw_changes == nil then
+      -- fallback to other cb
+      return M.make_surrounding_lines_cb(-1)(bufnr)
+    end
+    local lines = vim.tbl_map(function(s)
+      local res = string.gsub(s, "^[%d%s]+", "")
+      return res
+    end, split(raw_changes, "\n"))
+    local results = {}
+    local seen = {} -- deduplicate
+    for i = #lines - 1, 2, -1 do
+      if #results <= max_num then
+        if not seen[lines[i]] then
+          table.insert(results, lines[i])
+          seen[lines[i]] = true
+        end
+      else
+        break
+      end
+    end
+    if #results == 0 then
+      -- fallback to other cb
+      return M.make_surrounding_lines_cb(-1)(bufnr)
+    end
+    return results
+  end
+end
+
 return M
