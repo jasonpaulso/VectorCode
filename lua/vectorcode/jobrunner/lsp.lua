@@ -18,6 +18,11 @@ local notify_opts = vc_config.notify_opts
 ---@param ok_to_fail boolean
 ---@return integer?
 function jobrunner.init(ok_to_fail)
+  local existing_clients = vim.lsp.get_clients({ name = vc_config.lsp_configs().name })
+  if #existing_clients > 0 then
+    CLIENT = existing_clients[1]
+    return CLIENT.id
+  end
   ok_to_fail = ok_to_fail or true
   local client_id = vim.lsp.start(vc_config.lsp_configs(), {})
   if client_id ~= nil then
@@ -63,8 +68,7 @@ function jobrunner.run(args, timeout_ms, bufnr)
 end
 
 function jobrunner.run_async(args, callback, bufnr)
-  jobrunner.init(false)
-  assert(CLIENT ~= nil)
+  assert(jobrunner.init(false))
   assert(bufnr ~= nil)
 
   if not CLIENT.attached_buffers[bufnr] then

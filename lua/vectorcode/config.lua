@@ -32,6 +32,7 @@ local lsp_configs = function()
       cfg = lspconfig.vectorcode_server.config_def.default_config
     end
   end
+  cfg.name = "vectorcode_server"
   return cfg
 end
 
