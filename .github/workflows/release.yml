@@ -24,7 +24,7 @@ jobs:
         id: changelog
         uses: mikepenz/release-changelog-builder-action@v5
         with:
-          mode: "HYBRID"
+          mode: "COMMIT"
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Release
