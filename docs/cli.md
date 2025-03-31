@@ -68,18 +68,16 @@ pipx install git+https://github.com/Davidyz/VectorCode
 ### Chromadb
 [Chromadb](https://www.trychroma.com/) is the vector database used by VectorCode
 to store and retrieve the code embeddings. Although it is already bundled with
-VectorCode and you can absolutely use VectorCode just fine, it is recommended to
+VectorCode and you can absolutely use VectorCode just fine, it is **recommended** to
 set up a standalone local server (they provides detailed instructions through
 [docker](https://docs.trychroma.com/production/containers/docker) and
 [systemd](https://cookbook.chromadb.dev/running/systemd-service/)), because this
-will significantly reduce the IO overhead.
+will significantly reduce the IO overhead and avoid potential race condition.
 
 #### For Windows Users
 
-At the moment Windows users need to install a standalone chromadb server because
-I haven't figured out a way to reliably manage the bundled chromadb instance.
-This should be straightforward if you have docker installed. See Chromadb
-documentation for details.
+Windows support is not officially tested at this moment. [This PR](https://github.com/Davidyz/VectorCode/pull/40)
+tracks my progress trying to provide better experiences for windows users.
 
 ### Legacy Environments
 
@@ -100,12 +98,18 @@ This will initialise the project for VectorCode and create a `.vectorcode`
 directory in your project root. This is where you keep your configuration file
 for VectorCode, if any.
 
-After that, you can start vectorising files for the project:
+After that, you can start vectorising files for the project.
 ```bash
 vectorcode vectorise src/**/*.py
 ```
 > VectorCode doesn't track file changes, so you need to re-vectorise edited
-> files. You may automate this by a git pre-commit hook, etc.
+> files. You may automate this by a git pre-commit hook, etc. See the 
+> [wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks)
+> for examples to set them up.
+
+Ideally, you should try to vectorise all source code in the repo, but for large 
+repos you may experience slow queries. If that happens, try to `vectorcode drop` 
+the project and only vectorise files that are important or informative.
 
 And now, you're ready to make queries that will retrieve the relevant documents:
 ```bash

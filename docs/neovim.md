@@ -49,7 +49,8 @@ Use your favourite plugin manager.
 The VectorCode CLI and neovim plugin share the same release scheme (version
 numbers). In other words, CLI 0.1.3 is guaranteed to work with neovim plugin
 0.1.3, but if you use CLI 0.1.0 with neovim plugin 0.1.3, they may not work
-together because the neovim plugin is built for a newer CLI release.
+together because the neovim plugin is built for a newer CLI release and depends
+on newer features/breaking changes.
 
 To ensure maximum compatibility, please either:
 1. Use release build for VectorCode CLI and pin to the release tags for the
@@ -342,8 +343,9 @@ The following are the available options for this function:
   - `n_query`: number of retrieved documents. Default: `1`;
   - `debounce`: debounce time in milliseconds. Default: `10`;
   - `notify`: whether to show notifications when a query is completed. Default: `false`;
-  - `query_cb`: a callback function that accepts the buffer ID and returns the query message(s). 
-    Default: `require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See 
+  - `query_cb`: `fun(bufnr: integer):string|string[]`, a callback function that accepts 
+    the buffer ID and returns the query message(s). Default: 
+    `require("vectorcode.utils").make_surrounding_lines_cb(-1)`. See 
     [this section](#built-in-query-callbacks) for a list of built-in query callbacks;
   - `events`: list of autocommand events that triggers the query. Default: `{"BufWritePost", "InsertEnter", "BufReadPost"}`;
   - `run_on_register`: whether to run the query when the buffer is registered.
