@@ -212,7 +212,15 @@ local make_tool = check_cli_wrap(function(opts)
           return "  - " .. line
         end, require("vectorcode").prompts())
       )
-
+      local root = vim.fs.root(0, { ".vectorcode", ".git" })
+      if root ~= nil then
+        vim.list_extend(guidelines, {
+          string.format(
+            "  - The current working directory is %s. Assume the user query is about this project, unless the user asked otherwise or queries from the current project fails to return useful results.",
+            root
+          ),
+        })
+      end
       return string.format(
         [[### VectorCode, a repository indexing and query tool.
 
