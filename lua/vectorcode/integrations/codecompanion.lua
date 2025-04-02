@@ -6,6 +6,7 @@
 ---@field include_stderr boolean?
 ---@field use_lsp boolean?
 ---@field auto_submit table<string, boolean>?
+---@field ls_on_start boolean?
 
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
@@ -56,6 +57,7 @@ local make_tool = check_cli_wrap(function(opts)
     include_stderr = false,
     use_lsp = false,
     auto_submit = { ls = false, query = false },
+    ls_on_start = false,
   }, opts or {})
   local capping_message = ""
   if opts.max_num > 0 then
@@ -212,6 +214,20 @@ local make_tool = check_cli_wrap(function(opts)
           return "  - " .. line
         end, require("vectorcode").prompts())
       )
+      if opts.ls_on_start then
+        initialise_runner(opts.use_lsp)
+        if job_runner ~= nil then
+          vim.list_extend(guidelines, {
+            "  - The following projects are indexed by VectorCode and are available for you to search in:",
+          })
+          vim.list_extend(
+            guidelines,
+            vim.tbl_map(function(s)
+              return string.format("    - %s", s["project-root"])
+            end, job_runner.run({ "ls", "--pipe" }, -1, 0))
+          )
+        end
+      end
       local root = vim.fs.root(0, { ".vectorcode", ".git" })
       if root ~= nil then
         vim.list_extend(guidelines, {
