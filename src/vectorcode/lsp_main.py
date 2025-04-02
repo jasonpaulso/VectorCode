@@ -75,27 +75,30 @@ async def execute_command(ls: LanguageServer, args: list[str]):
         )
         return
     if parsed_args.project_root is None:
-        assert DEFAULT_PROJECT_ROOT is not None, (
-            "Failed to automatically resolve project root!"
-        )
-
-        parsed_args.project_root = DEFAULT_PROJECT_ROOT
+        if DEFAULT_PROJECT_ROOT is not None:
+            parsed_args.project_root = DEFAULT_PROJECT_ROOT
     elif DEFAULT_PROJECT_ROOT is None:
         DEFAULT_PROJECT_ROOT = str(parsed_args.project_root)
 
-    parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
-    await make_caches(parsed_args.project_root)
-    final_configs = await cached_project_configs[parsed_args.project_root].merge_from(
-        parsed_args
-    )
-    final_configs.pipe = True
+    if parsed_args.project_root is not None:
+        parsed_args.project_root = os.path.abspath(str(parsed_args.project_root))
+        await make_caches(parsed_args.project_root)
+        final_configs = await cached_project_configs[
+            parsed_args.project_root
+        ].merge_from(parsed_args)
+        final_configs.pipe = True
+        client = await get_client(final_configs)
+        collection = await get_collection(
+            client=client,
+            configs=final_configs,
+            make_if_missing=final_configs.action in {CliAction.vectorise},
+        )
+    else:
+        final_configs = parsed_args
+        client = await get_client(parsed_args)
+        collection = None
     progress_token = str(uuid.uuid4())
-    client = await get_client(final_configs)
-    collection = await get_collection(
-        client=client,
-        configs=final_configs,
-        make_if_missing=final_configs.action in {CliAction.vectorise},
-    )
+
     await ls.progress.create_async(progress_token)
     match final_configs.action:
         case CliAction.query:
@@ -108,9 +111,12 @@ async def execute_command(ls: LanguageServer, args: list[str]):
             )
             final_results = []
             try:
-                final_results.extend(
-                    await build_query_results(collection, final_configs)
-                )
+                if collection is None:
+                    print("Please specify a project to search in.", file=sys.stderr)
+                else:
+                    final_results.extend(
+                        await build_query_results(collection, final_configs)
+                    )
             finally:
                 ls.progress.end(
                     progress_token,

@@ -265,11 +265,14 @@ async def test_execute_command_no_default_project_root(
     global DEFAULT_PROJECT_ROOT
     DEFAULT_PROJECT_ROOT = None
     mock_config.project_root = None
-    with patch(
-        "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
-    ) as mock_parse_cli_args:
+    with (
+        patch(
+            "vectorcode.lsp_main.parse_cli_args", new_callable=AsyncMock
+        ) as mock_parse_cli_args,
+        patch("sys.stderr.write") as stderr,
+        patch("vectorcode.lsp_main.get_client", new_callable=AsyncMock),
+    ):
         mock_parse_cli_args.return_value = mock_config
-        with pytest.raises(AssertionError) as excinfo:
-            await execute_command(mock_language_server, ["query", "test"])
-        assert "Failed to automatically resolve project root!" in str(excinfo.value)
+        await execute_command(mock_language_server, ["query", "test"])
+        stderr.assert_called()
     DEFAULT_PROJECT_ROOT = None  # Reset the global variable
