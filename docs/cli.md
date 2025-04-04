@@ -74,6 +74,11 @@ set up a standalone local server (they provides detailed instructions through
 [systemd](https://cookbook.chromadb.dev/running/systemd-service/)), because this
 will significantly reduce the IO overhead and avoid potential race condition.
 
+> If you're setting up a standalone ChromaDB server, I recommend sticking to
+> v0.6.3.
+> ChromaDB recently released v1.0.0, which may not work with VectorCode. I'm
+> testing with v1.0.0 and will publish a new release when it's ready.
+
 #### For Windows Users
 
 Windows support is not officially tested at this moment. [This PR](https://github.com/Davidyz/VectorCode/pull/40)
