@@ -9,6 +9,7 @@
     * [For Windows Users](#for-windows-users)
   * [Legacy Environments](#legacy-environments)
 * [Getting Started](#getting-started)
+  * [Refreshing Embeddings](#refreshing-embeddings)
   * [If Anything Goes Wrong...](#if-anything-goes-wrong)
 * [Advanced Usage](#advanced-usage)
   * [Initialising a Project](#initialising-a-project)
@@ -140,6 +141,19 @@ vectorcode drop
 
 To see a full list of CLI options and tricks to optimise the retrieval, keep 
 reading or use the `--help` flag.
+
+### Refreshing Embeddings
+
+To maintain the accuracy of the vector search, it's important to keep your
+embeddings up-to-date. You can simply run the `vectorise` subcommand on a file
+to refresh the embedding for a particular file, and the CLI provides a 
+`vectorcode update` subcommand, which updates the embeddings for all files that 
+are currently indexed by VectorCode for the current project. 
+
+If you want something more automagic, check out 
+[this secion in the wiki](https://github.com/Davidyz/VectorCode/wiki/Tips-and-Tricks#git-hooks) 
+about setting up git hooks to trigger automatic embedding updates when you
+commit/checkout to a different tag.
 
 ### If Anything Goes Wrong...
 
