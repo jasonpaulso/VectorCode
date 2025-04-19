@@ -1,8 +1,11 @@
 import argparse
 import glob
 import json
+import logging
 import os
+import sys
 from dataclasses import dataclass, field, fields
+from datetime import datetime
 from enum import Enum, StrEnum
 from pathlib import Path
 from typing import Any, Optional, Sequence, Union
@@ -10,6 +13,9 @@ from typing import Any, Optional, Sequence, Union
 import shtab
 
 from vectorcode import __version__
+
+logger = logging.getLogger(name=__name__)
+
 
 PathLike = Union[str, Path]
 
@@ -395,10 +401,13 @@ async def load_config_file(path: Optional[PathLike] = None):
     if path is None:
         path = GLOBAL_CONFIG_PATH
     if os.path.isfile(path):
+        logger.debug(f"Loading config from {path}")
         with open(path) as fin:
             config = json.load(fin)
         expand_envs_in_dict(config)
         return await Config.import_from(config)
+    else:
+        logger.warning("Loading default config.")
     return Config()
 
 
@@ -410,9 +419,13 @@ async def find_project_config_dir(start_from: PathLike = "."):
         for anchor in project_root_anchors:
             to_be_checked = os.path.join(current_dir, anchor)
             if os.path.isdir(to_be_checked):
+                logger.debug(f"Found root anchor at {str(to_be_checked)}")
                 return to_be_checked
         parent = current_dir.parent
         if parent.resolve() == current_dir:
+            logger.debug(
+                f"Couldn't find project root after reaching {str(current_dir)}"
+            )
             return
         current_dir = parent.resolve()
 
@@ -481,3 +494,58 @@ async def expand_globs(
                 )
             )
     return list(result)
+
+
+def config_logging(
+    name: str = "vectorcode", stdio: bool = True, log_file: bool = False
+):  # pragma: nocover
+    """Configure the logging module. This should be called before a `main` function (CLI, LSP or MCP)."""
+
+    logging.root.handlers = []
+
+    level_from_env = os.environ.get("VECTORCODE_LOG_LEVEL")
+    level = None
+    if level_from_env:
+        level = logging._nameToLevel.get(level_from_env.upper())
+        if level is None:
+            logging.warning(
+                "Invalid log level: %s. Falling back to default levels.", level_from_env
+            )
+
+    handlers = []
+    if level is not None or log_file:
+        log_dir = os.path.expanduser("~/.local/share/vectorcode/logs/")
+        os.makedirs(log_dir, exist_ok=True)
+        # File handler
+        log_file_path = os.path.join(
+            log_dir, f"{name}-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log"
+        )
+        file_handler = logging.FileHandler(log_file_path)
+        file_handler.setLevel(level or logging.WARN)
+        handlers.append(file_handler)
+
+    if stdio:
+        import colorlog
+
+        # Console handler
+        console_handler = colorlog.StreamHandler(sys.stderr)
+        console_handler.setFormatter(
+            colorlog.ColoredFormatter(
+                fmt="%(log_color)s%(levelname)s%(reset)s: %(name)s : %(message)s",
+                log_colors={
+                    "DEBUG": "cyan",
+                    "INFO": "green",
+                    "WARNING": "yellow",
+                    "ERROR": "red",
+                    "CRITICAL": "bold_red",
+                },
+                reset=True,
+            )
+        )
+        console_handler.setLevel(level or logging.WARN)
+        handlers.append(console_handler)
+
+    logging.basicConfig(
+        handlers=handlers,
+        level=level,
+    )

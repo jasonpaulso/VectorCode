@@ -7,16 +7,21 @@ import traceback
 from vectorcode import __version__
 from vectorcode.cli_utils import (
     CliAction,
+    config_logging,
     find_project_root,
     get_project_config,
     parse_cli_args,
 )
+
+logger = logging.getLogger(name=__name__)
 
 
 async def async_main():
     cli_args = await parse_cli_args()
     if cli_args.no_stderr:
         sys.stderr = open(os.devnull, "w")
+    logger.info("Collected CLI arguments: %s", cli_args)
+
     if cli_args.project_root is None:
         cwd = os.getcwd()
         cli_args.project_root = (
@@ -25,6 +30,8 @@ async def async_main():
             or cwd
         )
 
+    logger.info(f"Project root is set to {cli_args.project_root}")
+
     try:
         final_configs = await (
             await get_project_config(cli_args.project_root)
@@ -32,6 +39,8 @@ async def async_main():
     except IOError as e:
         traceback.print_exception(e, file=sys.stderr)
         return 1
+
+    logger.info("Final configuration has been built: %s", final_configs)
 
     match cli_args.action:
         case CliAction.check:
@@ -58,10 +67,6 @@ async def async_main():
 
     server_process = None
     if not await try_server(final_configs.host, final_configs.port):
-        print(
-            f"Host at {final_configs.host}:{final_configs.port} is unavailable. VectorCode will start its own Chromadb at a random port.",
-            file=sys.stderr,
-        )
         server_process = await start_server(final_configs)
 
     if final_configs.pipe:
@@ -99,14 +104,17 @@ async def async_main():
     except Exception as e:
         return_val = 1
         traceback.print_exception(e, file=sys.stderr)
+        logger.error(traceback.format_exc())
     finally:
         if server_process is not None:
+            logger.info("Shutting down the bundled Chromadb instance.")
             server_process.terminate()
             await server_process.wait()
         return return_val
 
 
 def main():  # pragma: nocover
+    config_logging("vectorcode")
     return asyncio.run(async_main())
 
 
