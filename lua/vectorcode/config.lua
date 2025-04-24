@@ -1,3 +1,18 @@
+local log_level = os.getenv("VECTORCODE_NVIM_LOG_LEVEL")
+if log_level == nil then
+  log_level = "error"
+else
+  log_level = log_level:lower()
+end
+local logger = require("plenary.log").new({
+  plugin = "vectorcode.nvim",
+  level = log_level,
+  use_console = log_level ~= nil and "async" or false,
+  use_file = log_level ~= nil,
+})
+
+local cacher = nil
+
 ---@type VectorCode.Opts
 local config = {
   async_opts = {
@@ -16,27 +31,43 @@ local config = {
   notify = true,
   timeout_ms = 5000,
   on_setup = { update = false, lsp = false },
+  sync_log_env_var = false,
 }
+
+local setup_config = vim.deepcopy(config, true)
 
 ---@return vim.lsp.ClientConfig
 local lsp_configs = function()
+  ---@type vim.lsp.ClientConfig
   local cfg =
     { cmd = { "vectorcode-server" }, root_markers = { ".vectorcode", ".git" } }
   if vim.lsp.config ~= nil and vim.lsp.config.vectorcode_server ~= nil then
     -- nvim >= 0.11.0
     cfg = vim.tbl_deep_extend("force", cfg, vim.lsp.config.vectorcode_server)
+    logger.debug("Using vim.lsp.config.vectorcode_server for LSP config:\n", cfg)
   else
     -- nvim < 0.11.0
     local ok, lspconfig = pcall(require, "lspconfig.configs")
     if ok and lspconfig.vectorcode_server ~= nil then
       cfg = lspconfig.vectorcode_server.config_def.default_config
+      logger.debug("Using nvim-lspconfig for LSP config:\n", cfg)
     end
   end
   cfg.name = "vectorcode_server"
+  if setup_config.sync_log_env_var then
+    local level = os.getenv("VECTORCODE_NVIM_LOG_LEVEL") or nil
+    if level ~= nil then
+      level = string.upper(level)
+      if level == "TRACE" then
+        -- there's no `TRACE` in python logging
+        level = "DEBUG"
+      end
+      cfg.cmd_env["VECTORCODE_LOG_LEVEL"] = level
+    end
+  end
   return cfg
 end
 
-local setup_config = vim.deepcopy(config, true)
 local notify_opts = { title = "VectorCode" }
 
 ---@param opts {notify:boolean}?
@@ -67,6 +98,7 @@ local startup_handler = check_cli_wrap(function(configs)
       if out.code == 0 then
         local path = string.gsub(out.stdout, "^%s*(.-)%s*$", "%1")
         if path ~= "" then
+          logger.info("Running `vectorcode update` on start up.")
           require("vectorcode").update(path)
         end
       end
@@ -76,6 +108,7 @@ local startup_handler = check_cli_wrap(function(configs)
     local ok, runner = pcall(require, "vectorcode.jobrunner.lsp")
     if not ok or not type(runner) == "table" or runner == nil then
       vim.notify("Failed to start vectorcode-server.", vim.log.levels.WARN, notify_opts)
+      logger.error("Failed to start vectorcode-server.")
       return
     end
     runner.init()
@@ -90,6 +123,7 @@ return {
   setup = check_cli_wrap(
     ---@param opts VectorCode.Opts?
     function(opts)
+      logger.info("Received setup opts:\n", opts)
       opts = opts or {}
       setup_config = vim.tbl_deep_extend("force", config, opts or {})
       for k, v in pairs(setup_config.async_opts) do
@@ -107,17 +141,24 @@ return {
         end
       end
       startup_handler(setup_config)
+      logger.info("Finished processing opts:\n", setup_config)
     end
   ),
 
   ---@return VectorCode.CacheBackend
   get_cacher_backend = function()
+    if cacher ~= nil then
+      return cacher
+    end
     if setup_config.async_backend == "lsp" then
-      local ok, cacher = pcall(require, "vectorcode.cacher.lsp")
-      if ok and type(cacher) == "table" then
+      local ok, lsp_cacher = pcall(require, "vectorcode.cacher.lsp")
+      if ok and type(lsp_cacher) == "table" then
+        logger.debug("Using LSP backend for cacher.")
+        cacher = lsp_cacher
         return cacher
       else
         vim.notify("Falling back to default backend.", vim.log.levels.WARN, notify_opts)
+        logger.warn("Fallback to default (cmd) backend for cacher.")
         setup_config.async_backend = "default"
       end
     end
@@ -130,9 +171,12 @@ return {
         vim.log.levels.ERROR,
         notify_opts
       )
+      logger.warn("Fallback to default (cmd) backend for cacher.")
       setup_config.async_backend = "default"
     end
-    return require("vectorcode.cacher.default")
+    logger.debug("Defaulting to cmd backend for cacher.")
+    cacher = require("vectorcode.cacher.default")
+    return cacher
   end,
 
   ---@return VectorCode.Opts
@@ -156,4 +200,5 @@ return {
   check_cli_wrap = check_cli_wrap,
 
   lsp_configs = lsp_configs,
+  logger = logger,
 }

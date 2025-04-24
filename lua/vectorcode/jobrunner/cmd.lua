@@ -4,6 +4,7 @@ local runner = {}
 local Job = require("plenary.job")
 ---@type {integer: Job}
 local jobs = {}
+local logger = require("vectorcode.config").logger
 
 function runner.run_async(args, callback, bufnr)
   if type(callback) == "function" then
@@ -14,7 +15,10 @@ function runner.run_async(args, callback, bufnr)
   local cmd = { "vectorcode" }
   args = require("vectorcode.jobrunner").find_root(args, bufnr)
   vim.list_extend(cmd, args)
-
+  logger.debug(
+    ("cmd jobrunner for buffer %s args: %s"):format(bufnr, vim.inspect(args))
+  )
+  ---@diagnostic disable-next-line: missing-fields
   local job = Job:new({
     command = "vectorcode",
     args = args,
@@ -24,8 +28,17 @@ function runner.run_async(args, callback, bufnr)
       local ok, decoded = pcall(vim.json.decode, table.concat(result, ""))
       if callback ~= nil then
         if ok then
+          logger.debug(
+            "cmd jobrunner result:\n",
+            vim.tbl_map(function(item)
+              item.document = nil
+              item.chunk = nil
+              return item
+            end, vim.deepcopy(result))
+          )
           callback(decoded, self:stderr_result())
         else
+          logger.warn("cmd runner: failed to decode result:\n", result)
           callback({ result }, self:stderr_result())
         end
       end
