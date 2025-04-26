@@ -52,9 +52,10 @@ end
 ---@return CodeCompanion.Agent.Tool
 local make_tool = check_cli_wrap(function(opts)
   local has = require("codecompanion").has
-  if has ~= nil and not has("xml-tools") then
-    error("VectorCode doesn't support the new tool format yet.")
+  if has == nil or has("xml-tools") then
+    error("Put legacy tool here")
   end
+  assert(has("function-calling"))
   if opts == nil or opts.use_lsp == nil then
     opts = vim.tbl_deep_extend(
       "force",
@@ -311,7 +312,7 @@ local make_tool = check_cli_wrap(function(opts)
       ---@param agent CodeCompanion.Agent
       ---@param cmd table
       ---@param stderr table|string
-      error = function(agent, cmd, stderr)
+      error = function(self, agent, cmd, stderr)
         logger.error(
           ("CodeCompanion tool with command %s thrown with the following error: %s"):format(
             vim.inspect(cmd),
@@ -330,7 +331,7 @@ local make_tool = check_cli_wrap(function(opts)
       ---@param agent CodeCompanion.Agent
       ---@param cmd table
       ---@param stdout table
-      success = function(agent, cmd, stdout)
+      success = function(self, agent, cmd, stdout)
         stdout = stdout[1]
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
