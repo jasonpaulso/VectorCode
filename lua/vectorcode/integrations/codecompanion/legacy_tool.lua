@@ -1,14 +1,5 @@
 ---@module "codecompanion"
 
----@class VectorCode.CodeCompanion.ToolOpts
----@field max_num integer?
----@field default_num integer?
----@field include_stderr boolean?
----@field use_lsp boolean?
----@field auto_submit table<string, boolean>?
----@field ls_on_start boolean?
----@field no_duplicate boolean?
-
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
 local notify_opts = vc_config.notify_opts
@@ -50,12 +41,11 @@ end
 
 ---@param opts VectorCode.CodeCompanion.ToolOpts?
 ---@return CodeCompanion.Agent.Tool
-local make_tool = check_cli_wrap(function(opts)
+return check_cli_wrap(function(opts)
   local has = require("codecompanion").has
-  if has == nil or has("xml-tools") then
-    error("Put legacy tool here")
+  if has ~= nil and not has("xml-tools") then
+    error("VectorCode doesn't support the new tool format yet.")
   end
-  assert(has("function-calling"))
   if opts == nil or opts.use_lsp == nil then
     opts = vim.tbl_deep_extend(
       "force",
@@ -93,16 +83,7 @@ local make_tool = check_cli_wrap(function(opts)
           type(cb) == "function",
           "Please upgrade CodeCompanion.nvim to at least 13.5.0"
         )
-        if not (vim.list_contains({ "ls", "query" }, action.command)) then
-          if action.options.query ~= nil then
-            action.command = "query"
-          else
-            return {
-              status = "error",
-              data = "Need to specify the command (`ls` or `query`).",
-            }
-          end
-        end
+        assert(vim.list_contains({ "ls", "query" }, action.command))
         if opts.auto_submit[action.command] then
           vim.schedule(function()
             vim.api.nvim_input("<Esc>")
@@ -121,6 +102,7 @@ local make_tool = check_cli_wrap(function(opts)
               and vim.uv.fs_stat(action.options.project_root).type == "directory"
             then
               vim.list_extend(args, { "--project_root", action.options.project_root })
+              vim.list_extend(args, { "--absolute" })
             else
               agent.chat:add_message(
                 { role = "user", content = "INVALID PROJECT ROOT! USE THE LS COMMAND!" },
@@ -141,12 +123,10 @@ local make_tool = check_cli_wrap(function(opts)
               vim.list_extend(args, existing_files)
             end
           end
-          vim.list_extend(args, { "--absolute" })
           logger.info(
             "CodeCompanion query tool called the runner with the following args: ",
             args
           )
-
           job_runner.run_async(args, function(result, error)
             vim.schedule(function()
               if opts.auto_submit[action.command] then
@@ -188,47 +168,56 @@ local make_tool = check_cli_wrap(function(opts)
       end,
     },
     schema = {
-      type = "function",
-      ["function"] = {
-        name = "vectorcode",
-        description = "Retrieves code documents using semantic search or lists indexed projects",
-        parameters = {
-          type = "object",
-          properties = {
-            command = {
-              type = "string",
-              enum = { "query", "ls" },
-              description = "Action to perform: 'query' for semantic search or 'ls' to list projects",
-            },
+      {
+        tool = {
+          _attr = { name = "vectorcode" },
+          action = {
+            command = "query",
             options = {
-              type = "object",
-              properties = {
-                query = {
-                  type = "array",
-                  items = { type = "string" },
-                  description = "Search keywords (required for 'query' command). Orthogornal keywords should be in distinct strings.",
-                },
-                count = {
-                  type = "integer",
-                  description = "Number of documents to retrieve, must be positive",
-                },
-                project_root = {
-                  type = "string",
-                  description = "Project path to search within (must be from 'ls' results)",
-                },
-              },
-              required = { "query" },
-              additionalProperties = false,
+              query = { "keyword1", "keyword2" },
+              count = 5,
             },
           },
-          required = { "command" },
-          additionalProperties = false,
         },
-        strict = true,
+      },
+      {
+        tool = {
+          _attr = { name = "vectorcode" },
+          action = {
+            command = "query",
+            options = {
+              query = { "keyword1" },
+              count = 2,
+            },
+          },
+        },
+      },
+      {
+        tool = {
+          _attr = { name = "vectorcode" },
+          action = {
+            command = "query",
+            options = {
+              query = { "keyword1" },
+              count = 3,
+              project_root = "path/to/other/project",
+            },
+          },
+        },
+      },
+      {
+        tool = {
+          _attr = { name = "vectorcode" },
+          action = {
+            command = "ls",
+          },
+        },
       },
     },
-    system_prompt = function()
+    system_prompt = function(schema, xml2lua)
       local guidelines = {
+        "  - Ensure XML is **valid and follows the schema**",
+        "  - Make sure the tools xml block is **surrounded by ```xml**",
         "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags",
         "  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running",
         "  - Include one single command call for VectorCode each time. You may include multiple keywords in the command",
@@ -275,44 +264,47 @@ local make_tool = check_cli_wrap(function(opts)
 
 1. **Purpose**: This gives you the ability to access the repository to find information that you may need to assist the user.
 
-2. **Key Points**:
+2. **Usage**: Return an XML markdown code block that retrieves relevant documents corresponding to the generated query.
+
+3. **Key Points**:
 %s 
 
-3. Example Tool Call
-**Querying a project and retrieve the 10 most relevant files with keywords "keyword1" and "keyword2"**
-```
-{
-  "_attr": "vectorcode",
-  {
-    "action": "query",
-    "options": {
-      "query": ["keyword1", "keyword2"],
-      "count": 10,
-      "project_root": "/path/to/project",
-    }
-  }
-}
+4. **Actions**:
+
+a) **Query for 5 documents using 2 keywords: `keyword1` and `keyword2`**:
+
+```xml
+%s
 ```
 
-**Listing available projects**
+b) **Query for 2 documents using one keyword: `keyword1`**:
+
+```xml
+%s
 ```
-{
-  "_attr": "vectorcode",
-  {
-    "action": "ls"
-  }
-}
+c) **Query for 3 documents using one keyword: `keyword1` in a different project located at `path/to/other/project` (relative to current working directory)**:
+```xml
+%s
+```
+d) **Get all indexed project**
+```xml
+%s
 ```
 
-]],
-        table.concat(guidelines, "\n")
+Remember:
+- Minimize explanations unless prompted. Focus on generating correct XML.]],
+        table.concat(guidelines, "\n"),
+        xml2lua.toXml({ tools = { schema[1] } }),
+        xml2lua.toXml({ tools = { schema[2] } }),
+        xml2lua.toXml({ tools = { schema[3] } }),
+        xml2lua.toXml({ tools = { schema[4] } })
       )
     end,
     output = {
       ---@param agent CodeCompanion.Agent
       ---@param cmd table
       ---@param stderr table|string
-      error = function(self, agent, cmd, stderr)
+      error = function(agent, cmd, stderr)
         logger.error(
           ("CodeCompanion tool with command %s thrown with the following error: %s"):format(
             vim.inspect(cmd),
@@ -331,7 +323,7 @@ local make_tool = check_cli_wrap(function(opts)
       ---@param agent CodeCompanion.Agent
       ---@param cmd table
       ---@param stdout table
-      success = function(self, agent, cmd, stdout)
+      success = function(agent, cmd, stdout)
         stdout = stdout[1]
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
@@ -380,39 +372,3 @@ local make_tool = check_cli_wrap(function(opts)
     },
   }
 end)
-
-return {
-  chat = {
-    ---@param component_cb (fun(result:VectorCode.Result):string)?
-    make_slash_command = check_cli_wrap(function(component_cb)
-      return {
-        description = "Add relevant files from the codebase.",
-        ---@param chat CodeCompanion.Chat
-        callback = function(chat)
-          local codebase_prompt = ""
-          local vc_cache = vc_config.get_cacher_backend()
-          local bufnr = chat.context.bufnr
-          if not vc_cache.buf_is_registered(bufnr) then
-            return
-          end
-          codebase_prompt =
-            "The following are relevant files from the repository. Use them as extra context."
-          local query_result = vc_cache.make_prompt_component(bufnr, component_cb)
-          local id = tostring(query_result.count) .. " file(s) from codebase"
-          codebase_prompt = codebase_prompt .. query_result.content
-          chat:add_message(
-            { content = codebase_prompt, role = "user" },
-            { visible = false, id = id }
-          )
-          chat.references:add({
-            source = "VectorCode",
-            name = "VectorCode",
-            id = id,
-          })
-        end,
-      }
-    end),
-
-    make_tool = make_tool,
-  },
-}
