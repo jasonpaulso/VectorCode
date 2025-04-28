@@ -1,43 +1,12 @@
 ---@module "codecompanion"
 
+local cc_common = require("vectorcode.integrations.codecompanion.common")
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
-local notify_opts = vc_config.notify_opts
+
 local logger = vc_config.logger
 
-local tool_result_source = "VectorCodeToolResult"
-
----@param t table|string
----@return string
-local function flatten_table_to_string(t)
-  if type(t) == "string" then
-    return t
-  end
-  return table.concat(vim.iter(t):flatten(math.huge):totable(), "\n")
-end
-
 local job_runner = nil
----@param use_lsp boolean
-local function initialise_runner(use_lsp)
-  if job_runner == nil then
-    if use_lsp then
-      job_runner = require("vectorcode.jobrunner.lsp")
-    end
-    if job_runner == nil then
-      job_runner = require("vectorcode.jobrunner.cmd")
-      logger.info("Using cmd runner for CodeCompanion tool.")
-      if use_lsp then
-        vim.schedule_wrap(vim.notify)(
-          "Failed to initialise the LSP runner. Falling back to cmd runner.",
-          vim.log.levels.WARN,
-          notify_opts
-        )
-      end
-    else
-      logger.info("Using LSP runner for CodeCompanion tool.")
-    end
-  end
-end
 
 ---@param opts VectorCode.CodeCompanion.ToolOpts?
 ---@return CodeCompanion.Agent.Tool
@@ -77,7 +46,7 @@ return check_cli_wrap(function(opts)
       ---@return nil|{ status: string, msg: string }
       function(agent, action, input, cb)
         logger.info("CodeCompanion tool called with the following arguments:\n", action)
-        initialise_runner(opts.use_lsp)
+        job_runner = cc_common.initialise_runner(opts.use_lsp)
         assert(job_runner ~= nil)
         assert(
           type(cb) == "function",
@@ -115,7 +84,7 @@ return check_cli_wrap(function(opts)
             -- exclude files that has been added to the context
             local existing_files = { "--exclude" }
             for _, ref in pairs(agent.chat.refs) do
-              if ref.source == tool_result_source then
+              if ref.source == cc_common.tool_result_source then
                 table.insert(existing_files, ref.id)
               end
             end
@@ -137,7 +106,7 @@ return check_cli_wrap(function(opts)
               cb({ status = "success", data = result })
             else
               if type(error) == "table" then
-                error = flatten_table_to_string(error)
+                error = cc_common.flatten_table_to_string(error)
               end
               cb({
                 status = "error",
@@ -156,7 +125,7 @@ return check_cli_wrap(function(opts)
               cb({ status = "success", data = result })
             else
               if type(error) == "table" then
-                error = flatten_table_to_string(error)
+                error = cc_common.flatten_table_to_string(error)
               end
               cb({
                 status = "error",
@@ -237,7 +206,7 @@ return check_cli_wrap(function(opts)
         end, require("vectorcode").prompts())
       )
       if opts.ls_on_start then
-        initialise_runner(opts.use_lsp)
+        job_runner = cc_common.initialise_runner(opts.use_lsp)
         if job_runner ~= nil then
           vim.list_extend(guidelines, {
             "  - The following projects are indexed by VectorCode and are available for you to search in:",
@@ -311,7 +280,7 @@ Remember:
             vim.inspect(stderr)
           )
         )
-        stderr = flatten_table_to_string(stderr)
+        stderr = cc_common.flatten_table_to_string(stderr)
         agent.chat:add_message({
           role = "user",
           content = string.format(
@@ -348,7 +317,7 @@ Remember:
                 ),
               }, { visible = false, id = file.path })
               agent.chat.references:add({
-                source = tool_result_source,
+                source = cc_common.tool_result_source,
                 id = file.path,
                 opts = { visible = false },
               })
