@@ -236,33 +236,6 @@ return check_cli_wrap(function(opts)
 
 2. **Key Points**:
 %s 
-
-3. Example Tool Call
-**Querying a project and retrieve the 10 most relevant files with keywords "keyword1" and "keyword2"**
-```
-{
-  "_attr": "vectorcode",
-  {
-    "action": "query",
-    "options": {
-      "query": ["keyword1", "keyword2"],
-      "count": 10,
-      "project_root": "/path/to/project",
-    }
-  }
-}
-```
-
-**Listing available projects**
-```
-{
-  "_attr": "vectorcode",
-  {
-    "action": "ls"
-  }
-}
-```
-
 ]],
         table.concat(guidelines, "\n")
       )
@@ -279,13 +252,10 @@ return check_cli_wrap(function(opts)
           )
         )
         stderr = cc_common.flatten_table_to_string(stderr)
-        agent.chat:add_message({
-          role = "user",
-          content = string.format(
-            "VectorCode tool failed with the following error:\n",
-            stderr
-          ),
-        }, { visible = false })
+        agent.chat:add_tool_output(
+          self,
+          string.format("VectorCode tool failed with the following error:\n", stderr)
+        )
       end,
       ---@param agent CodeCompanion.Agent
       ---@param cmd table
@@ -299,9 +269,9 @@ return check_cli_wrap(function(opts)
           agent.chat.ui:unlock_buf()
           for i, file in pairs(stdout) do
             if opts.max_num < 0 or i <= opts.max_num then
-              agent.chat:add_message({
-                role = "user",
-                content = string.format(
+              agent.chat:add_tool_output(
+                self,
+                string.format(
                   [[Here is a file the VectorCode tool retrieved:
 <path>
 %s
@@ -313,7 +283,11 @@ return check_cli_wrap(function(opts)
                   file.path,
                   file.document
                 ),
-              }, { visible = false, id = file.path })
+                string.format(
+                  "VectorCode retrieved: `%s`",
+                  string.gsub(file.path, vim.fs.normalize("~"), "~")
+                )
+              )
               agent.chat.references:add({
                 source = cc_common.tool_result_source,
                 id = file.path,
@@ -323,13 +297,11 @@ return check_cli_wrap(function(opts)
           end
         elseif cmd.command == "ls" then
           for _, col in pairs(stdout) do
-            agent.chat:add_message({
-              role = "user",
-              content = string.format(
-                "<collection>%s</collection>",
-                col["project-root"]
-              ),
-            }, { visible = false })
+            agent.chat:add_tool_output(
+              self,
+              string.format("<collection>%s</collection>", col["project-root"]),
+              "Fetched all indexed project from VectorCode."
+            )
           end
         end
         if opts.auto_submit[cmd.command] then
