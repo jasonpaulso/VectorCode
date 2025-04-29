@@ -198,7 +198,7 @@ return check_cli_wrap(function(opts)
         ("  - If the user did not specify how many documents to retrieve, **start with %d documents**"):format(
           opts.default_num
         ),
-        "  - If you decide to call VectorCode tool, do not output anything else. Once you have the results, provide answers based on the results and let the user decide whether to run the tool again",
+        "  - If you decide to call VectorCode tool, do not start answering the question until you have the results. Provide answers based on the results and let the user decide whether to run the tool again",
       }
       vim.list_extend(
         guidelines,
@@ -265,10 +265,21 @@ return check_cli_wrap(function(opts)
         logger.info(
           ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
         )
+        local user_message
         if cmd.command == "query" then
           agent.chat.ui:unlock_buf()
+          local max_result = opts.max_num
+          if max_result < 0 then
+            max_result = #stdout
+          end
           for i, file in pairs(stdout) do
-            if opts.max_num < 0 or i <= opts.max_num then
+            if i <= max_result then
+              if i == 1 then
+                user_message =
+                  string.format("Retrieved %s files from VectorCode.", max_result)
+              else
+                user_message = ""
+              end
               agent.chat:add_tool_output(
                 self,
                 string.format(
@@ -283,10 +294,7 @@ return check_cli_wrap(function(opts)
                   file.path,
                   file.document
                 ),
-                string.format(
-                  "VectorCode retrieved: `%s`",
-                  string.gsub(file.path, vim.fs.normalize("~"), "~")
-                )
+                user_message
               )
               agent.chat.references:add({
                 source = cc_common.tool_result_source,
@@ -296,11 +304,17 @@ return check_cli_wrap(function(opts)
             end
           end
         elseif cmd.command == "ls" then
-          for _, col in pairs(stdout) do
+          for i, col in pairs(stdout) do
+            if i == 1 then
+              user_message =
+                string.format("Fetched %s indexed project from VectorCode.", #stdout)
+            else
+              user_message = ""
+            end
             agent.chat:add_tool_output(
               self,
               string.format("<collection>%s</collection>", col["project-root"]),
-              "Fetched all indexed project from VectorCode."
+              user_message
             )
           end
         end

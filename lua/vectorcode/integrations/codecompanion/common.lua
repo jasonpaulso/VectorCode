@@ -3,6 +3,15 @@ local vc_config = require("vectorcode.config")
 local notify_opts = vc_config.notify_opts
 local logger = vc_config.logger
 
+---@class VectorCode.CodeCompanion.ToolOpts
+---@field max_num integer?
+---@field default_num integer?
+---@field include_stderr boolean?
+---@field use_lsp boolean?
+---@field auto_submit table<string, boolean>?
+---@field ls_on_start boolean?
+---@field no_duplicate boolean?
+
 return {
   tool_result_source = "VectorCodeToolResult",
   ---@param t table|string
