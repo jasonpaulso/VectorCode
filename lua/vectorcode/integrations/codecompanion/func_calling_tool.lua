@@ -1,0 +1,309 @@
+---@module "codecompanion"
+
+local cc_common = require("vectorcode.integrations.codecompanion.common")
+local vc_config = require("vectorcode.config")
+local check_cli_wrap = vc_config.check_cli_wrap
+local logger = vc_config.logger
+
+local job_runner = nil
+
+---@param opts VectorCode.CodeCompanion.ToolOpts?
+---@return CodeCompanion.Agent.Tool
+return check_cli_wrap(function(opts)
+  if opts == nil or opts.use_lsp == nil then
+    opts = vim.tbl_deep_extend(
+      "force",
+      opts or {},
+      { use_lsp = vc_config.get_user_config().async_backend == "lsp" }
+    )
+  end
+  opts = vim.tbl_deep_extend("force", {
+    max_num = -1,
+    default_num = 10,
+    include_stderr = false,
+    use_lsp = false,
+    auto_submit = { ls = false, query = false },
+    ls_on_start = false,
+    no_duplicate = true,
+  }, opts or {})
+  logger.info("Creating CodeCompanion tool with the following args:\n", opts)
+  local capping_message = ""
+  if opts.max_num > 0 then
+    capping_message = ("  - Request for at most %d documents"):format(opts.max_num)
+  end
+
+  return {
+    name = "vectorcode",
+    cmds = {
+      ---@param agent CodeCompanion.Agent
+      ---@param action table
+      ---@param input table
+      ---@return nil|{ status: string, msg: string }
+      function(agent, action, input, cb)
+        logger.info("CodeCompanion tool called with the following arguments:\n", action)
+        job_runner = cc_common.initialise_runner(opts.use_lsp)
+        assert(job_runner ~= nil)
+        assert(
+          type(cb) == "function",
+          "Please upgrade CodeCompanion.nvim to at least 13.5.0"
+        )
+        if not (vim.list_contains({ "ls", "query" }, action.command)) then
+          if action.options.query ~= nil then
+            action.command = "query"
+          else
+            return {
+              status = "error",
+              data = "Need to specify the command (`ls` or `query`).",
+            }
+          end
+        end
+
+        if action.command == "query" then
+          local args = { "query", "--pipe", "-n", tostring(action.options.count) }
+          if action.options.query == nil then
+            return {
+              status = "error",
+              data = "Missing argument: option.query, please refine the tool argument.",
+            }
+          end
+          if type(action.options.query) == "string" then
+            action.options.query = { action.options.query }
+          end
+          vim.list_extend(args, action.options.query)
+          if action.options.project_root ~= nil then
+            if
+              vim.uv.fs_stat(action.options.project_root) ~= nil
+              and vim.uv.fs_stat(action.options.project_root).type == "directory"
+            then
+              vim.list_extend(args, { "--project_root", action.options.project_root })
+            else
+              agent.chat:add_message(
+                { role = "user", content = "INVALID PROJECT ROOT! USE THE LS COMMAND!" },
+                { visible = false }
+              )
+            end
+          end
+
+          if opts.no_duplicate and agent.chat.refs ~= nil then
+            -- exclude files that has been added to the context
+            local existing_files = { "--exclude" }
+            for _, ref in pairs(agent.chat.refs) do
+              if ref.source == cc_common.tool_result_source then
+                table.insert(existing_files, ref.id)
+              end
+            end
+            if #existing_files > 1 then
+              vim.list_extend(args, existing_files)
+            end
+          end
+          vim.list_extend(args, { "--absolute" })
+          logger.info(
+            "CodeCompanion query tool called the runner with the following args: ",
+            args
+          )
+
+          job_runner.run_async(args, function(result, error)
+            if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
+              cb({ status = "success", data = result })
+            else
+              if type(error) == "table" then
+                error = cc_common.flatten_table_to_string(error)
+              end
+              cb({
+                status = "error",
+                data = error,
+              })
+            end
+          end, agent.chat.bufnr)
+        elseif action.command == "ls" then
+          job_runner.run_async({ "ls", "--pipe" }, function(result, error)
+            if vim.islist(result) and #result > 0 then
+              cb({ status = "success", data = result })
+            else
+              if type(error) == "table" then
+                error = cc_common.flatten_table_to_string(error)
+              end
+              cb({
+                status = "error",
+                data = error,
+              })
+            end
+          end, agent.chat.bufnr)
+        end
+      end,
+    },
+    schema = {
+      type = "function",
+      ["function"] = {
+        name = "vectorcode",
+        description = "Retrieves code documents using semantic search or lists indexed projects",
+        parameters = {
+          type = "object",
+          properties = {
+            command = {
+              type = "string",
+              enum = { "query", "ls" },
+              description = "Action to perform: 'query' for semantic search or 'ls' to list projects",
+            },
+            options = {
+              type = "object",
+              properties = {
+                query = {
+                  type = "array",
+                  items = { type = "string" },
+                  description = "Query messages used for the search.",
+                },
+                count = {
+                  type = "integer",
+                  description = "Number of documents to retrieve, must be positive",
+                },
+                project_root = {
+                  type = "string",
+                  description = "Project path to search within (must be from 'ls' results)",
+                },
+              },
+              required = { "query" },
+              additionalProperties = false,
+            },
+          },
+          required = { "command" },
+          additionalProperties = false,
+        },
+        strict = true,
+      },
+    },
+    system_prompt = function()
+      local guidelines = {
+        "  - The path of a retrieved file will be wrapped in `<path>` and `</path>` tags. Its content will be right after the `</path>` tag, wrapped by `<content>` and `</content>` tags",
+        "  - If you used the tool, tell users that they may need to wait for the results and there will be a virtual text indicator showing the tool is still running",
+        "  - Include one single command call for VectorCode each time. You may include multiple keywords in the command",
+        "  - VectorCode is the name of this tool. Do not include it in the query unless the user explicitly asks",
+        "  - Use the `ls` command to retrieve a list of indexed project and pick one that may be relevant, unless the user explicitly mentioned 'this project' (or in other equivalent expressions)",
+        "  - **The project root option MUST be a valid path on the filesystem. It can only be one of the results from the `ls` command or from user input**",
+        capping_message,
+        ("  - If the user did not specify how many documents to retrieve, **start with %d documents**"):format(
+          opts.default_num
+        ),
+        "  - If you decide to call VectorCode tool, do not start answering the question until you have the results. Provide answers based on the results and let the user decide whether to run the tool again",
+      }
+      vim.list_extend(
+        guidelines,
+        vim.tbl_map(function(line)
+          return "  - " .. line
+        end, require("vectorcode").prompts())
+      )
+      if opts.ls_on_start then
+        job_runner = cc_common.initialise_runner(opts.use_lsp)
+        if job_runner ~= nil then
+          vim.list_extend(guidelines, {
+            "  - The following projects are indexed by VectorCode and are available for you to search in:",
+          })
+          vim.list_extend(
+            guidelines,
+            vim.tbl_map(function(s)
+              return string.format("    - %s", s["project-root"])
+            end, job_runner.run({ "ls", "--pipe" }, -1, 0))
+          )
+        end
+      end
+      local root = vim.fs.root(0, { ".vectorcode", ".git" })
+      if root ~= nil then
+        vim.list_extend(guidelines, {
+          string.format(
+            "  - The current working directory is %s. Assume the user query is about this project, unless the user asked otherwise or queries from the current project fails to return useful results.",
+            root
+          ),
+        })
+      end
+      return string.format(
+        [[### VectorCode, a repository indexing and query tool.
+
+1. **Purpose**: This gives you the ability to access the repository to find information that you may need to assist the user.
+
+2. **Key Points**:
+%s 
+]],
+        table.concat(guidelines, "\n")
+      )
+    end,
+    output = {
+      ---@param agent CodeCompanion.Agent
+      ---@param cmd table
+      ---@param stderr table|string
+      error = function(self, agent, cmd, stderr)
+        logger.error(
+          ("CodeCompanion tool with command %s thrown with the following error: %s"):format(
+            vim.inspect(cmd),
+            vim.inspect(stderr)
+          )
+        )
+        stderr = cc_common.flatten_table_to_string(stderr)
+        agent.chat:add_tool_output(
+          self,
+          string.format("VectorCode tool failed with error:\n", stderr)
+        )
+      end,
+      ---@param agent CodeCompanion.Agent
+      ---@param cmd table
+      ---@param stdout table
+      success = function(self, agent, cmd, stdout)
+        stdout = stdout[1]
+        logger.info(
+          ("CodeCompanion tool with command %s finished."):format(vim.inspect(cmd))
+        )
+        local user_message
+        if cmd.command == "query" then
+          local max_result = #stdout
+          if opts.max_num > 0 then
+            max_result = math.min(opts.max_num, max_result)
+          end
+          for i, file in pairs(stdout) do
+            if i <= max_result then
+              if i == 1 then
+                user_message =
+                  string.format("Retrieved %s files from VectorCode.", max_result)
+              else
+                user_message = ""
+              end
+              local llm_message = string.format(
+                [[Here is a file the VectorCode tool retrieved:
+<path>
+%s
+</path>
+<content>
+%s
+</content>
+]],
+                file.path,
+                file.document
+              )
+              agent.chat:add_tool_output(self, llm_message, user_message)
+              agent.chat.references:add({
+                source = cc_common.tool_result_source,
+                id = file.path,
+                opts = { visible = false },
+              })
+            end
+          end
+        elseif cmd.command == "ls" then
+          for i, col in pairs(stdout) do
+            if i == 1 then
+              user_message =
+                string.format("Fetched %s indexed project from VectorCode.", #stdout)
+            else
+              user_message = ""
+            end
+            agent.chat:add_tool_output(
+              self,
+              string.format("<collection>%s</collection>", col["project-root"]),
+              user_message
+            )
+          end
+        end
+        if opts.auto_submit[cmd.command] then
+          agent.chat:submit()
+        end
+      end,
+    },
+  }
+end)
