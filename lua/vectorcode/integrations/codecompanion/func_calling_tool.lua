@@ -151,7 +151,7 @@ return check_cli_wrap(function(opts)
                 query = {
                   type = "array",
                   items = { type = "string" },
-                  description = "Search keywords (required for 'query' command). Orthogornal keywords should be in distinct strings.",
+                  description = "Query messages used for the search.",
                 },
                 count = {
                   type = "integer",
