@@ -10,11 +10,6 @@ local job_runner = nil
 ---@param opts VectorCode.CodeCompanion.ToolOpts?
 ---@return CodeCompanion.Agent.Tool
 return check_cli_wrap(function(opts)
-  local has = require("codecompanion").has
-  if has == nil or has("xml-tools") then
-    error("Put legacy tool here")
-  end
-  assert(has("function-calling"))
   if opts == nil or opts.use_lsp == nil then
     opts = vim.tbl_deep_extend(
       "force",
@@ -62,12 +57,7 @@ return check_cli_wrap(function(opts)
             }
           end
         end
-        if opts.auto_submit[action.command] then
-          vim.schedule(function()
-            vim.api.nvim_input("<Esc>")
-            agent.chat.ui:lock_buf()
-          end)
-        end
+
         if action.command == "query" then
           local args = { "query", "--pipe", "-n", tostring(action.options.count) }
           if type(action.options.query) == "string" then
@@ -107,11 +97,6 @@ return check_cli_wrap(function(opts)
           )
 
           job_runner.run_async(args, function(result, error)
-            vim.schedule(function()
-              if opts.auto_submit[action.command] then
-                agent.chat.ui:unlock_buf()
-              end
-            end)
             if vim.islist(result) and #result > 0 and result[1].path ~= nil then ---@cast result VectorCode.Result[]
               cb({ status = "success", data = result })
             else
@@ -126,11 +111,6 @@ return check_cli_wrap(function(opts)
           end, agent.chat.bufnr)
         elseif action.command == "ls" then
           job_runner.run_async({ "ls", "--pipe" }, function(result, error)
-            vim.schedule(function()
-              if opts.auto_submit[action.command] then
-                agent.chat.ui:unlock_buf()
-              end
-            end)
             if vim.islist(result) and #result > 0 then
               cb({ status = "success", data = result })
             else
@@ -279,10 +259,8 @@ return check_cli_wrap(function(opts)
               else
                 user_message = ""
               end
-              agent.chat:add_tool_output(
-                self,
-                string.format(
-                  [[Here is a file the VectorCode tool retrieved:
+              local llm_message = string.format(
+                [[Here is a file the VectorCode tool retrieved:
 <path>
 %s
 </path>
@@ -290,11 +268,10 @@ return check_cli_wrap(function(opts)
 %s
 </content>
 ]],
-                  file.path,
-                  file.document
-                ),
-                user_message
+                file.path,
+                file.document
               )
+              agent.chat:add_tool_output(self, llm_message, user_message)
               agent.chat.references:add({
                 source = cc_common.tool_result_source,
                 id = file.path,
@@ -316,9 +293,6 @@ return check_cli_wrap(function(opts)
               user_message
             )
           end
-        end
-        if opts.auto_submit[cmd.command] then
-          agent.chat:submit()
         end
       end,
     },
