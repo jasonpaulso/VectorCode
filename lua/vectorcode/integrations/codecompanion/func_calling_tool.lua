@@ -267,10 +267,9 @@ return check_cli_wrap(function(opts)
         )
         local user_message
         if cmd.command == "query" then
-          agent.chat.ui:unlock_buf()
-          local max_result = opts.max_num
-          if max_result < 0 then
-            max_result = #stdout
+          local max_result = #stdout
+          if opts.max_num > 0 then
+            max_result = math.min(opts.max_num, max_result)
           end
           for i, file in pairs(stdout) do
             if i <= max_result then
