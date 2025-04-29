@@ -2,6 +2,7 @@
 
 local vc_config = require("vectorcode.config")
 local check_cli_wrap = vc_config.check_cli_wrap
+local logger = vc_config.logger
 
 return {
   chat = {
@@ -38,8 +39,10 @@ return {
     make_tool = function(opts)
       local has = require("codecompanion").has
       if has == nil or has("xml-tools") then
+        logger.debug("Using legacy tool.")
         return require("vectorcode.integrations.codecompanion.legacy_tool")(opts)
       elseif has("function-calling") then
+        logger.debug("Using function-calling tool.")
         return require("vectorcode.integrations.codecompanion.func_calling_tool")(opts)
       else
         error("Unsupported version of codecompanion!")

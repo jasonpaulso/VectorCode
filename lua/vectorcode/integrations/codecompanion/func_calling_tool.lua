@@ -234,7 +234,7 @@ return check_cli_wrap(function(opts)
         stderr = cc_common.flatten_table_to_string(stderr)
         agent.chat:add_tool_output(
           self,
-          string.format("VectorCode tool failed with the following error:\n", stderr)
+          string.format("VectorCode tool failed with error:\n", stderr)
         )
       end,
       ---@param agent CodeCompanion.Agent
