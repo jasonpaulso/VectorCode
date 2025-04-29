@@ -60,6 +60,12 @@ return check_cli_wrap(function(opts)
 
         if action.command == "query" then
           local args = { "query", "--pipe", "-n", tostring(action.options.count) }
+          if action.options.query == nil then
+            return {
+              status = "error",
+              data = "Missing argument: option.query, please refine the tool argument.",
+            }
+          end
           if type(action.options.query) == "string" then
             action.options.query = { action.options.query }
           end
