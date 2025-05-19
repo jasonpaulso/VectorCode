@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(lsof:*)",
+      "Bash(cat:*)",
+      "Bash(rg:*)",
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(pip show:*)",
+      "Bash(pipx upgrade:*)",
+      "Bash(pipx uninstall:*)",
+      "Bash(pipx install:*)",
+      "Bash(vectorcode vectorise:*)",
+      "Bash(pipx runpip vectorcode:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker run:*)",
+      "Bash(ls:*)",
+      "mcp__vectorcode__ls",
+      "mcp__vectorcode__query"
+    ],
+    "deny": []
+  }
+}
